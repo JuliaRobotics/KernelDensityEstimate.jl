@@ -51,6 +51,8 @@ Direct histogram of points from the product
     using Gadfly
     Pl2 = Gadfly.plot(x=pGM[1,:],y=pGM[2,:],Geom.histogram2d);
     draw(PDF("product.pdf",15cm,8cm),hstack(Pl1,Pl2))
+    
+![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/product.png)
 
 KDE product between non-gaussian distributions
 
