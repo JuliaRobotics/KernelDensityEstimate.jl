@@ -1,4 +1,4 @@
-# KDE.jl
+# KernelDensityEstimate.jl
 Kernel Density Estimate with product approximation using multiscale Gibbs sampling.
 
 This implementation is based on, but with further optimizations:
@@ -8,14 +8,14 @@ This implementation is based on, but with further optimizations:
 Installation
 ============
 
-    Pkg.clone("https://github.com/dehann/KDE.jl.git")
+    Pkg.clone("https://github.com/dehann/KernelDensityEstimate.jl.git")
 
 Example
 =======
 
 Bring the module into the workspace
 
-    using KDE
+    using KernelDensityEstimate
 
 Basic one dimensional examples
 
