@@ -8,7 +8,7 @@ This implementation is based on, but with further optimizations:
 Installation
 ============
 
-    Pkg.clone("https://github.com/dehann/KernelDensityEstimate.jl.git")
+    Pkg.add("KernelDensityEstimate")
 
 Example
 =======
