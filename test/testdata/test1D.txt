@@ -1,0 +1,15 @@
+p = kde([.1,.45,.55,3.8],.08);  % create a mixture of 4 gaussians for testing
+
+
+
+#########
+printVec(dens.centers,2*dens.num_points*dens.dims,"centers=");
+printVec(dens.weights,2*dens.num_points,"weights=");
+printVec(dens.ranges,2*dens.num_points*dens.dims,"ranges=");
+printVec(dens.left_child,2*dens.num_points,"left_child=");
+printVec(dens.right_child,2*dens.num_points,"right_child=");
+printVec(dens.highest_leaf,2*dens.num_points,"highest_leaf=");
+printVec(dens.lowest_leaf,2*dens.num_points,"lowest_leaf=");
+printVec(dens.permutation,2*dens.num_points,"permutation=");
+printVec(dens.means,2*dens.num_points*dens.dims,"means=");
+printVec(dens.bandwidth,2*dens.num_points*dens.dims,"bandwidth=");
