@@ -58,3 +58,5 @@ KDE product between non-gaussian distributions
     pGM, = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, 5)
     pq = kde!(pGM)
     plotKDE([p;q;pq],c=["red";"green";"black"])
+
+![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/RayleighBetaProduct.png)
