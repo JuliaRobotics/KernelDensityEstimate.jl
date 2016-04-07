@@ -13,6 +13,8 @@ export
     sample,
     resample,
     evaluateDualTree,
+    BallTree,
+    BallTreeDensity,
 
     # product operation with Multiscale Gibbs sampling
     prodAppxMSGibbsS,
