@@ -25,6 +25,8 @@ Basic one dimensional examples
     p75 = resample(p2,75)
     plotKDE([p100;p2;p75],c=["red";"green";"blue"]) # using Gadfly under the hood
 
+![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/FirstExamplePlot.png)
+
 Multidimensional example
 
     pd2 = kde!(randn(3,100));
