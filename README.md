@@ -1,4 +1,8 @@
 # KernelDensityEstimate.jl
+
+[![Build Status](https://travis-ci.org/dehann/KernelDensityEstimate.jl.svg?branch=master)](https://travis-ci.org/dehann/KernelDensityEstimate.jl)
+[![codecov.io](https://codecov.io/github/dehann/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/dehann/KernelDensityEstimate.jl?branch=master)
+
 Kernel Density Estimate with product approximation using multiscale Gibbs sampling.
 
 All code is implemented in native Julia, including plotting which uses Gadfly. This implementation is based on, with further optimizations:
