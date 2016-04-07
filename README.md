@@ -1,6 +1,5 @@
 # KernelDensityEstimate.jl
 
-[![Build Status](https://travis-ci.org/dehann/KernelDensityEstimate.jl.svg?branch=master)](https://travis-ci.org/dehann/KernelDensityEstimate.jl)
 [![codecov.io](https://codecov.io/github/dehann/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/dehann/KernelDensityEstimate.jl?branch=master)
 
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.4.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.4)
