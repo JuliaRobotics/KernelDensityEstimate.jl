@@ -158,7 +158,7 @@ function stackMarginals(P::Array{BallTreeDensity,1}, m::Int64)
 end
 
 
-function vstackedPlots(plots::Array{Compose.Context,1})
+function vstackedPlots(plots::Array{Gadfly.Compose.Context,1})
     evalstr = ""
     for i in 1:length(plots)
         evalstr = string(evalstr, ",plots[$(i)]")

@@ -2,7 +2,7 @@ __precompile__(true)
 
 module KDE
 
-using Gadfly
+using Gadfly, Color
 
 export
     kde!,
