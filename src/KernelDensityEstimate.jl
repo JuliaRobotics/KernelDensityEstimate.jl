@@ -1,6 +1,6 @@
 __precompile__(true)
 
-module KDE
+module KernelDensityEstimate
 
 using Gadfly, Colors
 
