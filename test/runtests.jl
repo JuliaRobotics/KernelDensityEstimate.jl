@@ -1,7 +1,9 @@
-include("BallTree01.jl")
-include("BallTreeDensity01.jl")
-include("KDE01.jl")
-include("DualTree01.jl")
+using KernelDensityEstimate
+using Base.Test
+# include("BallTree01.jl")
+# include("BallTreeDensity01.jl")
+# include("KDE01.jl")
+# include("DualTree01.jl")
 
 # type BallTree
 #   dims::Int64                     # dimension of data
@@ -188,9 +190,16 @@ function UnitTest2Dvarlcv01()
   testSubtract(refbtd, p, 2e-3)
 end
 
-UnitTest1D01()
-UnitTest1Dlcv01()
-UnitTest2D01()
-UnitTest2Dlcv01()
-UnitTest2Dvar01()
-UnitTest2Dvarlcv01()
+global pass=false
+try
+  UnitTest1D01()
+  UnitTest1Dlcv01()
+  UnitTest2D01()
+  UnitTest2Dlcv01()
+  UnitTest2Dvar01()
+  UnitTest2Dvarlcv01()
+  global pass=true
+catch
+  global pass=false
+end
+@test pass
