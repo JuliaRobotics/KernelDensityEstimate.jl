@@ -49,3 +49,12 @@ Direct histogram of points from the product
     using Gadfly
     Pl2 = Gadfly.plot(x=pGM[1,:],y=pGM[2,:],Geom.histogram2d);
     draw(PDF("product.pdf",15cm,8cm),hstack(Pl1,Pl2))
+
+KDE product between non-gaussian distributions
+
+    p = kde!(rand(Beta(1.0,0.45),300));
+    q = kde!(rand(Rayleigh(0.5),100)-0.5);
+    dummy = kde!(rand(2,100),[1.0]);
+    pGM, = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, 5)
+    pq = kde!(pGM)
+    plotKDE([p;q;pq],c=["red";"green";"black"])
