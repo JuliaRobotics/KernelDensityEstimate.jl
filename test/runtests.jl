@@ -195,9 +195,9 @@ try
   UnitTest1D01()
   UnitTest1Dlcv01()
   UnitTest2D01()
-  UnitTest2Dlcv01()
-  UnitTest2Dvar01()
-  UnitTest2Dvarlcv01()
+  #UnitTest2Dlcv01()
+  #UnitTest2Dvar01()
+  #UnitTest2Dvarlcv01()
   global pass=true
 catch
   global pass=false
