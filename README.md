@@ -15,9 +15,9 @@ Installation
 
     Pkg.add("KernelDensityEstimate")
     
-Alternatively, while waiting for the package to be officially registered on METADATA.jl:
+Newest stuff:
 
-    Pkg.clone("git@github.com:dehann/KernelDensityEstimate.jl.git")
+    Pkg.checkout("KernelDensityEstimate")
 
 Example
 =======
