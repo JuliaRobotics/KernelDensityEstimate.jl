@@ -190,6 +190,15 @@ function UnitTest2Dvarlcv01()
   testSubtract(refbtd, p, 2e-3)
 end
 
+function testProds(;D=3,M=6,N=100,n=100, MCMC=5)
+  P = BallTreeDensity[];
+  [push!(P, kde!(randn(D,N))) for i in 1:M];
+  dummy = kde!(rand(D,n),[1.0]);
+  pGM, = prodAppxMSGibbsS(dummy, P, Union{}, Union{}, MCMC);
+  sum(pGM)<1e-14 ? error("testProds -- prodAppxMSGibbsS, nothing in pGM, len $(length(P))") : nothing
+  norm(Base.mean(pGM,2)) < 0.2
+end
+
 global pass=false
 try
   UnitTest1D01()
