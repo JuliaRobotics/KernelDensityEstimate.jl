@@ -190,25 +190,50 @@ function UnitTest2Dvarlcv01()
   testSubtract(refbtd, p, 2e-3)
 end
 
-function testProds(;D=3,M=6,N=100,n=100, MCMC=5)
+function testProds(;D=3,M=6,N=100,n=100, dev=1.0, MCMC=5)
   P = BallTreeDensity[];
-  [push!(P, kde!(randn(D,N))) for i in 1:M];
-  dummy = kde!(rand(D,n),[1.0]);
+  [push!(P, kde!(dev*randn(D,N))) for i in 1:M];
+  dummy = kde!(randn(D,n),[1.0]);
   pGM, = prodAppxMSGibbsS(dummy, P, Union{}, Union{}, MCMC);
-  sum(pGM)<1e-14 ? error("testProds -- prodAppxMSGibbsS, nothing in pGM, len $(length(P))") : nothing
-  norm(Base.mean(pGM,2)) < 0.2
+  sum(abs(pGM))<1e-14 ? error("testProds -- prodAppxMSGibbsS, nothing in pGM, len $(length(P))") : nothing
+  prodDev = sqrt(dev^(2*M)/(M*(dev^2)))
+  T1 = norm(Base.mean(pGM,2)) < 0.8*prodDev
+  T2 = true
+  for i in 1:D
+    tv = Base.std(pGM[i,:])
+    lv = (0.66*prodDev < tv < 1.33*prodDev)
+    T2 = T2 && lv
+  end
+  T1 && T2
 end
 
-global pass=false
+function rangeTestProds(;D=3,M=6,N=100,n=100, dev=1.0, MCMC=5)
+  @show v = [testProds(D=D,M=M,N=N,n=n, dev=dev, MCMC=MCMC) for i in 1:10]
+  sum(map(Int,v)) >= 6
+end
+
+global pass=true
 try
+  global pass
   UnitTest1D01()
   UnitTest1Dlcv01()
   UnitTest2D01()
-  #UnitTest2Dlcv01()
-  #UnitTest2Dvar01()
+  # UnitTest2Dlcv01()
+  UnitTest2Dvar01()
   #UnitTest2Dvarlcv01()
-  global pass=true
-catch
+
+  @show pass = pass && rangeTestProds(D=2,M=2);
+  @show pass = pass && rangeTestProds(D=2,M=4);
+  @show pass = pass && rangeTestProds(D=2,M=6);
+  @show pass = pass && rangeTestProds(D=3,M=6, MCMC=10);
+  @show pass = pass && rangeTestProds(D=4,M=6, MCMC=10);
+  @show pass = pass && rangeTestProds(D=3,M=10, MCMC=10);
+  @show pass = pass && rangeTestProds(D=3,M=5,N=300);
+  @show pass = pass && rangeTestProds(D=2,M=7,n=300);
+  @show pass = pass && rangeTestProds(D=3,M=4,MCMC=100);
+
+catch e
   global pass=false
+  rethrow(e)
 end
 @test pass
