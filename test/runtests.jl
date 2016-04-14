@@ -260,6 +260,10 @@ try
   pass = pass && rangeUnitTests()
   pass = pass && integralAppxUnitTests()
 
+  # check for errors on plotting code
+  p = kde!(rand(100));
+  plotKDE([p],c=["red"]);
+
 catch e
   global pass=false
   rethrow(e)
