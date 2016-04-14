@@ -197,7 +197,7 @@ function testProds(;D=3,M=6,N=100,n=100, dev=1.0, MCMC=5)
   pGM, = prodAppxMSGibbsS(dummy, P, Union{}, Union{}, MCMC);
   sum(abs(pGM))<1e-14 ? error("testProds -- prodAppxMSGibbsS, nothing in pGM, len $(length(P))") : nothing
   prodDev = sqrt(dev^(2*M)/(M*(dev^2)))
-  T1 = norm(Base.mean(pGM,2)) < 0.8*prodDev
+  T1 = norm(Base.mean(pGM,2)) < 1.0*prodDev
   T2 = true
   for i in 1:D
     tv = Base.std(pGM[i,:])
@@ -212,25 +212,53 @@ function rangeTestProds(;D=3,M=6,N=100,n=100, dev=1.0, MCMC=5)
   sum(map(Int,v)) >= 6
 end
 
+function rangeUnitTests()
+  passt = true
+  @show passt = passt && rangeTestProds(D=2,M=2);
+  @show passt = passt && rangeTestProds(D=2,M=4);
+  @show passt = passt && rangeTestProds(D=2,M=6);
+  @show passt = passt && rangeTestProds(D=3,M=6, MCMC=10);
+  @show passt = passt && rangeTestProds(D=4,M=6, MCMC=10);
+  # @show passt = passt && rangeTestProds(D=3,M=10, MCMC=10);
+  @show passt = passt && rangeTestProds(D=3,M=5,N=300);
+  @show passt = passt && rangeTestProds(D=2,M=7,n=300);
+  @show passt = passt && rangeTestProds(D=3,M=2,MCMC=100);
+  return passt
+end
+
+function intgAppxGaussianOffs(;offs::Float64=0.0, N::Int=201, dim::Int=1)
+  p = kde!(randn(dim,100));
+  pts = randn(dim,150)
+  pts[1,:] += offs
+  q = kde!(pts);
+  return intersIntgAppxIS(p,q, N=N)
+end
+
+function integralAppxUnitTests()
+  testflag = true
+  @show a = intgAppxGaussianOffs(offs=0.0,dim=1)
+  @show testflag = testflag && 0.2 < a < 0.35
+  @show a = intgAppxGaussianOffs(offs=1.0,dim=1,N=1000)
+  @show testflag = testflag && 0.1 < a < 0.3
+  @show a = intgAppxGaussianOffs(offs=-2.0,dim=1,N=1000)
+  @show testflag = testflag && 0.01 < a < 0.15
+  @show a = intgAppxGaussianOffs(offs=0.0,dim=2)
+  @show testflag = testflag && 0.05 < a < 0.12
+
+  return testflag
+end
+
 global pass=true
 try
   global pass
-  UnitTest1D01()
-  UnitTest1Dlcv01()
-  UnitTest2D01()
+  pass = pass && UnitTest1D01()
+  pass = pass && UnitTest1Dlcv01()
+  pass = pass && UnitTest2D01()
   # UnitTest2Dlcv01()
-  UnitTest2Dvar01()
+  pass = pass && UnitTest2Dvar01()
   #UnitTest2Dvarlcv01()
-
-  @show pass = pass && rangeTestProds(D=2,M=2);
-  @show pass = pass && rangeTestProds(D=2,M=4);
-  @show pass = pass && rangeTestProds(D=2,M=6);
-  @show pass = pass && rangeTestProds(D=3,M=6, MCMC=10);
-  @show pass = pass && rangeTestProds(D=4,M=6, MCMC=10);
-  @show pass = pass && rangeTestProds(D=3,M=10, MCMC=10);
-  @show pass = pass && rangeTestProds(D=3,M=5,N=300);
-  @show pass = pass && rangeTestProds(D=2,M=7,n=300);
-  @show pass = pass && rangeTestProds(D=3,M=4,MCMC=100);
+  pass = pass && rangeUnitTests()
+  pass = pass && integralAppxUnitTests()
 
 catch e
   global pass=false

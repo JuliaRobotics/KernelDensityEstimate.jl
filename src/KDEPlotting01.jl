@@ -29,19 +29,24 @@ function plotKDE(bd::BallTreeDensity;
     plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl)
 end
 
-function getKDERange(bd::BallTreeDensity; extend::Float64=0.1)
-  if (bd.bt.dims == 1)
-    pts = getPoints(bd)
-    rangeV = [minimum(pts),maximum(pts)]
-  else
-      return error("getKDERange(::BTD) -- multidimensional not implemented yet")
-  end
-
-  dr = extend*(rangeV[2]-rangeV[1])
-  rangeV[1] = rangeV[1] - dr;
-  rangeV[2] = rangeV[2] + dr;
-  return rangeV
-end
+# function getKDERange(bd::BallTreeDensity; extend::Float64=0.1)
+#   if (bd.bt.dims == 1)
+#     pts = getPoints(bd)
+#     rangeV = [minimum(pts),maximum(pts)]
+#   else
+#       return error("getKDERange(::BTD) -- multidimensional not implemented yet")
+#   end
+#
+#   dr = extend*(rangeV[2]-rangeV[1])
+#   rangeV[1] = rangeV[1] - dr;
+#   rangeV[2] = rangeV[2] + dr;
+#   return rangeV
+# end
+#
+# function getKDERangeLinspace(bd::BallTreeDensity; extend::Float64=0.2, N::Int=201)
+#   v = getKDERange(bd,extend=extend)
+#   return linspace(v[1],v[2],N)
+# end
 
 function plotKDE(darr::Array{BallTreeDensity,1};
       N::Int=200, c::Array{ASCIIString,1}=["black"],rmax=-Inf,rmin=Inf,

@@ -538,6 +538,55 @@ function kde!(points::Array{Float64,1}, autoselect::ASCIIString="lcv")
   return kde!(points',autoselect)
 end
 
+function getKDERange(bd::BallTreeDensity; extend::Float64=0.1)
+  if (bd.bt.dims == 1)
+    pts = getPoints(bd)
+    rangeV = [minimum(pts),maximum(pts)]
+  else
+      return error("getKDERange(::BTD) -- multidimensional not implemented yet")
+  end
+
+  dr = extend*(rangeV[2]-rangeV[1])
+  rangeV[1] = rangeV[1] - dr;
+  rangeV[2] = rangeV[2] + dr;
+  return rangeV
+end
+
+function getKDERangeLinspace(bd::BallTreeDensity; extend::Float64=0.1, N::Int=201)
+  v = getKDERange(bd,extend=extend)
+  return linspace(v[1],v[2],N)
+end
+
+function intersIntgAppxIS(p::BallTreeDensity, q::BallTreeDensity;N=201)
+  ndims = Ndim(p)
+  xx = zeros(ndims, N)
+  dx = zeros(ndims)
+  LD = Array{LinSpace,1}(ndims)
+  for d in 1:ndims
+    LD[d] = getKDERangeLinspace(marginal(p,[d]), N=N, extend=0.3)
+    dx[d] = LD[d][2]-LD[d][1]
+  end
+  xx[1,:] = collect(getKDERangeLinspace(marginal(p,[1]), N=N, extend=0.3))
+  acc = 0.0
+  if ndims == 1
+    yy=evaluateDualTree(p,xx[:])
+    yy= yy .* evaluateDualTree(q,xx[:])
+    acc = sum(yy)*dx[1]
+  elseif ndims == 2
+    for i in 1:N
+      for j in 1:N
+        @inbounds xx[2,j] = LD[2][i]
+      end
+      yy=evaluateDualTree(p,xx)
+      yy = yy .* evaluateDualTree(q,xx)
+      acc += (dx[1]*sum(yy))*dx[2]
+    end
+  else
+    error("Can't do higher dimensions yet")
+  end
+  return acc
+end
+
 function test03()
     spls = zeros(1,3)
     spls[1,:] = [0.5172, 0.7169, 0.4049]

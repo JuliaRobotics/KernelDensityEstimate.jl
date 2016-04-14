@@ -18,6 +18,8 @@ export
     evaluateDualTree,
     BallTree,
     BallTreeDensity,
+    # approximate intersection volume
+    intersIntgAppxIS,
 
     # product operation with Multiscale Gibbs sampling
     prodAppxMSGibbsS,
