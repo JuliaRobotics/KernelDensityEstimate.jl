@@ -18,6 +18,8 @@ export
     evaluateDualTree,
     BallTree,
     BallTreeDensity,
+    getKDERange,
+    getKDEMax,
     # approximate intersection volume
     intersIntgAppxIS,
 
@@ -26,7 +28,6 @@ export
 
     # Gadfly plotting functions
     plotKDE,
-    getKDERange,
     stackMarginals,
     vstackedPlots
 

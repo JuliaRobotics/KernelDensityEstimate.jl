@@ -557,6 +557,18 @@ function getKDERangeLinspace(bd::BallTreeDensity; extend::Float64=0.1, N::Int=20
   return linspace(v[1],v[2],N)
 end
 
+function getKDEMax(p::BallTreeDensity;N=200)
+  m = zeros(p.bt.dims)
+  for i in 1:p.bt.dims
+    mm = marginal(p,[i])
+    rangeV = getKDERange(mm)
+    X = linspace(rangeV[1],rangeV[2],N)
+    yV = evaluateDualTree(mm,X)
+    m[i] = X[findfirst(yV,maximum(yV))]
+  end
+  return m
+end
+
 function intersIntgAppxIS(p::BallTreeDensity, q::BallTreeDensity;N=201)
   ndims = Ndim(p)
   xx = zeros(ndims, N)
