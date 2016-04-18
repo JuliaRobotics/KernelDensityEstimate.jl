@@ -569,6 +569,10 @@ function getKDEMax(p::BallTreeDensity;N=200)
   return m
 end
 
+function getKDEMean(p::BallTreeDensity)
+  return vec(Base.mean(getPoints(p),2))
+end
+
 function intersIntgAppxIS(p::BallTreeDensity, q::BallTreeDensity;N=201)
   ndims = Ndim(p)
   xx = zeros(ndims, N)

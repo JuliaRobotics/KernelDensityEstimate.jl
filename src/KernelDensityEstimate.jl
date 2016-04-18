@@ -20,6 +20,7 @@ export
     BallTreeDensity,
     getKDERange,
     getKDEMax,
+    getKDEMean,
     # approximate intersection volume
     intersIntgAppxIS,
 
