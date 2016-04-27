@@ -68,7 +68,7 @@ KDE product between non-gaussian distributions
     using Distributions
     p = kde!(rand(Beta(1.0,0.45),300));
     q = kde!(rand(Rayleigh(0.5),100)-0.5);
-    dummy = kde!(rand(2,100),[1.0]);
+    dummy = kde!(rand(1,100),[1.0]);
     pGM, = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, 5)
     pq = kde!(pGM)
     plotKDE([p;q;pq],c=["red";"green";"black"])
