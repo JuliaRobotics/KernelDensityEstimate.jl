@@ -30,7 +30,8 @@ export
     # Gadfly plotting functions
     plotKDE,
     stackMarginals,
-    vstackedPlots
+    vstackedPlots,
+    drawHorDens
 
 
 include("BallTree01.jl")
