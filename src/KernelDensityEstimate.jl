@@ -2,7 +2,7 @@ __precompile__(true)
 
 module KernelDensityEstimate
 
-using Gadfly, Colors, Cairo, Fontconfig
+using Gadfly, Colors
 
 export
     kde!,
