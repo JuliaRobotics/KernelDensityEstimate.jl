@@ -209,7 +209,7 @@ end
 
 function rangeTestProds(;D=3,M=6,N=100,n=100, dev=1.0, MCMC=5)
   @show v = [testProds(D=D,M=M,N=N,n=n, dev=dev, MCMC=MCMC) for i in 1:10]
-  sum(map(Int,v)) >= 6
+  sum(map(Int,v)) >= 5
 end
 
 function rangeUnitTests()
