@@ -2,7 +2,9 @@ __precompile__(true)
 
 module KernelDensityEstimate
 
-using Gadfly, Colors
+using Gadfly, Colors, Graphics
+
+import Base: promote_rule, *
 
 export
     kde!,
@@ -31,7 +33,11 @@ export
     plotKDE,
     stackMarginals,
     vstackedPlots,
-    drawHorDens
+    drawHorDens,
+    toggleYTicks,
+
+    # add * operator for kde product approximate
+    *
 
 
 include("BallTree01.jl")

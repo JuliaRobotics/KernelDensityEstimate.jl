@@ -446,3 +446,12 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
 
     return reshape(points, Ndim, Np), reshape(indices, Ndens, Np)
 end
+
+function *(p1::BallTreeDensity, p2::BallTreeDensity)
+  numpts = round(Int,(Npts(p1)+Npts(p2))/2)
+  d = Ndim(p1)
+  d != Ndim(p2) ? error("kdes must have same dimension") : nothing
+  dummy = kde!(rand(d,numpts),[1.0]);
+  pGM, = prodAppxMSGibbsS(dummy, [p1;p2], Union{}, Union{}, 5)
+  return kde!(pGM)
+end

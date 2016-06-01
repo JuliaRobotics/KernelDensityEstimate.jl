@@ -2,18 +2,36 @@
 
 DOYTICKS=true
 
-function draw1D!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, e, c::ASCIIString="blue", myStyle::ASCIIString="";
-  xlbl="X")
+function toggleYTicks()
   global DOYTICKS
+  DOYTICKS = DOYTICKS ? false : true
+  return DOYTICKS
+end
+
+function draw1D!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, e, c::ASCIIString="deepskyblue", myStyle::ASCIIString="";
+  xlbl="X",legend=Union{})
+  global DOYTICKS
+
   yV = evaluateDualTree(bd,bins)
   # clamp max y values
   yV[3.0 .< yV] = 3.0
   if e == Union{}
-    if DOYTICKS
-      e=Gadfly.plot(x=bins,y=yV,Geom.line, Gadfly.Theme(default_color=parse(Colorant,c)),Guide.xlabel(xlbl))
-    else
-      e=Gadfly.plot(x=bins,y=yV,Geom.line, Gadfly.Theme(default_color=parse(Colorant,c)),Guide.xlabel(xlbl),Guide.ylabel(""),Guide.yticks(ticks=nothing))
+    ptArr = Any[]
+
+    l1 = Gadfly.layer(x=bins,y=yV,Geom.line, Gadfly.Theme(default_color=parse(Colorant,c)))
+    push!(ptArr, l1)
+    push!(ptArr, Guide.xlabel(xlbl))
+    if !DOYTICKS
+      # e=Gadfly.plot(x=bins,y=yV,Geom.line, Gadfly.Theme(default_color=parse(Colorant,c)),Guide.xlabel(xlbl))
+    # else
+      push!(ptArr, Guide.ylabel(""))
+      push!(ptArr,Guide.yticks(ticks=nothing))
+      # e=Gadfly.plot(x=bins,y=yV,Geom.line, Gadfly.Theme(default_color=parse(Colorant,c)),Guide.xlabel(xlbl),Guide.ylabel(""),Guide.yticks(ticks=nothing))
     end
+    if legend != Union{}
+      push!(ptArr, legend)
+    end
+    e = Gadfly.plot(ptArr...)
   else
     push!(e.layers, layer(x=bins, y=yV, Geom.line, Gadfly.Theme(default_color=parse(Colorant,c)))[1])
   end
@@ -25,8 +43,8 @@ end
 
 function plotKDE(bd::BallTreeDensity;
           N=200, c::Array{ASCIIString,1}=["black"],rmax=-Inf,rmin=Inf,
-          xlbl="X")
-    plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl)
+          xlbl="X", legend=Union{})
+    plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend)
 end
 
 # function getKDERange(bd::BallTreeDensity; extend::Float64=0.1)
@@ -50,9 +68,13 @@ end
 
 function plotKDE(darr::Array{BallTreeDensity,1};
       N::Int=200, c::Array{ASCIIString,1}=["black"],rmax=-Inf,rmin=Inf,
-      xlbl="X")
+      xlbl="X",legend=Union{})
     if (length(c)<2)
         c = repmat(c,length(darr))
+    end
+    lg = Union{}
+    if legend != Union{}
+      lg = Guide.manual_color_key("Legend", legend, c)
     end
     H = Union{}
     i = 0
@@ -63,7 +85,7 @@ function plotKDE(darr::Array{BallTreeDensity,1};
           rangeV = getKDERange(bd)
           if rangeV[1] > rmin  rangeV[1] = rmin end
           if rmax > rangeV[2]  rangeV[2] = rmax end
-          H=draw1D!(bd,linspace(rangeV[1],rangeV[2],N), H, c[i],xlbl=xlbl) #,argsPlot,argsKDE
+          H=draw1D!(bd,linspace(rangeV[1],rangeV[2],N), H, c[i],xlbl=xlbl,legend=lg) #,argsPlot,argsKDE
         else
             error("plotKDE(::BTD) -- multidimensional plotting not implemented yet")
         end
