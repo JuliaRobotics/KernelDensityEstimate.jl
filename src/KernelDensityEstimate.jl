@@ -2,7 +2,7 @@ __precompile__(true)
 
 module KernelDensityEstimate
 
-using Gadfly, Colors, Graphics
+using Gadfly, Colors, Cairo, Fontconfig
 
 import Base: promote_rule, *
 
