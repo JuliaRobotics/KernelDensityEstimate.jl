@@ -3,6 +3,7 @@
 [![codecov.io](https://codecov.io/github/dehann/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/dehann/KernelDensityEstimate.jl?branch=master)
 
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.4.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.4)
+(tests pass locally on v0.0.4, will refresh on listing soon)
 
 Kernel Density Estimate with product approximation using multiscale Gibbs sampling.
 
