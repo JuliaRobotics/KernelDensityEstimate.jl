@@ -6,7 +6,7 @@
 
 Kernel Density Estimate with product approximation using multiscale Gibbs sampling.
 
-All code is implemented in native Julia, including plotting which uses Gadfly. The main focus of this module is the ability to take the product between multiple KDEs, and makes this module unique from other KDE implementations. This package is also supports n-dimensional KDEs. Please see examples below for details. The implementation is already optimized from symbolic standpoint and is based on work by:
+All code is implemented in native Julia, including plotting which uses Gadfly. The main focus of this module is the ability to take the product between multiple KDEs, and makes this module unique from other KDE implementations. This package also supports n-dimensional KDEs. Please see examples below for details. The implementation is already fairly optimized from a symbolic standpoint and is based on work by:
 
     Sudderth, Erik B.; Ihler, Alexander, et al. "Nonparametric belief propagation." Communications of the ACM 53.10 (2010): 95-103.
 
