@@ -4,7 +4,7 @@ module KernelDensityEstimate
 
 using Gadfly, Colors, Cairo, Fontconfig
 
-import Base: promote_rule, *
+import Base: promote_rule, *, rand
 
 export
     kde!,
@@ -16,6 +16,7 @@ export
     getWeights,
     marginal,
     sample,
+    rand,
     resample,
     evaluateDualTree,
     BallTree,

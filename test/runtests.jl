@@ -248,24 +248,26 @@ function integralAppxUnitTests()
   return testflag
 end
 
-global pass=true
-try
-  global pass
-  pass = pass && UnitTest1D01()
-  pass = pass && UnitTest1Dlcv01()
-  pass = pass && UnitTest2D01()
-  # UnitTest2Dlcv01()
-  pass = pass && UnitTest2Dvar01()
-  #UnitTest2Dvarlcv01()
-  pass = pass && rangeUnitTests()
-  pass = pass && integralAppxUnitTests()
+function testRand()
+  println("testing rand functionality")
+  p = kde!(rand(2,100))
+  pts = rand(p,100)
+  return true
+end
+
+
+@test UnitTest1D01()
+@test UnitTest1Dlcv01()
+@test UnitTest2D01()
+# UnitTest2Dlcv01()
+@test UnitTest2Dvar01()
+#UnitTest2Dvarlcv01()
+@test rangeUnitTests()
+@test integralAppxUnitTests()
+
+@test testRand()
 
   # check for errors on plotting code
-  p = kde!(rand(100));
-  plotKDE([p],c=["red"]);
-
-catch e
-  global pass=false
-  rethrow(e)
-end
-@test pass
+p = kde!(rand(100));
+plotKDE([p],c=["red"]);
+@test true

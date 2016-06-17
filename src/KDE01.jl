@@ -1,15 +1,15 @@
 function kde!(points::Array{Float64,2}, ks::Array{Float64,1}, weights::Array{Float64,1})
   Nd, Np = size(points)
-  if (length(ks) == 1) 
-    ks = repmat(ks,Nd) 
+  if (length(ks) == 1)
+    ks = repmat(ks,Nd)
   end
 
   ks = ks.^2 # Guassian only at this point, taking covariance
   weights = weights./sum(weights);
   #bwsize = length(ks);
-  
+
   makeBallTreeDensity(points,weights,ks)
-  
+
   #if (length())
 end
 
@@ -46,8 +46,8 @@ end
 #s = zeros(dens.D,dens.N);
 #s(:,double(dens.perm(dens.N + (1:dens.N)))+1) = dens.bandwidth(:,dens.N + (1:dens.N));
 function getBW(bd::BallTreeDensity, ind::Array{Int64,1}=zeros(Int64,0))
-  if length(ind)==0 
-    ind=1:bd.bt.num_points 
+  if length(ind)==0
+    ind=1:bd.bt.num_points
   end
   s = zeros(bd.bt.dims,bd.bt.num_points)
   perm = bd.bt.permutation[(bd.bt.num_points + 1):end]
@@ -60,9 +60,9 @@ end
 
 function getWeights(bd::BallTreeDensity, ind::Array{Int64,1}=zeros(Int64,0))
   if length(ind)==0
-    ind=1:bd.bt.num_points 
+    ind=1:bd.bt.num_points
   end
-  perm = bd.bt.permutation[(bd.bt.num_points+1):end] 
+  perm = bd.bt.permutation[(bd.bt.num_points+1):end]
   wts = zeros(bd.bt.num_points)
   wts[perm] = bd.bt.weights[(bd.bt.num_points+1):end]
   wts = wts[ind]
@@ -109,4 +109,8 @@ function sample(npd::BallTreeDensity, Npts::Int64, ind::Array{Int64,1})
   pts = getPoints(npd)
   points = pts[:,ind] + getBW(npd,ind).*randKernel(npd.bt.dims, length(ind), getType(npd))
   return points, ind
+end
+
+function rand(p::BallTreeDensity, N::Int64=1)
+    return KernelDensityEstimate.sample(p,N)[1]
 end
