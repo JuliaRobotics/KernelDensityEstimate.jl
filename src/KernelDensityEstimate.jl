@@ -24,6 +24,7 @@ export
     getKDERange,
     getKDEMax,
     getKDEMean,
+    kld,
     # approximate intersection volume
     intersIntgAppxIS,
 

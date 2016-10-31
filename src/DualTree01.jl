@@ -407,6 +407,11 @@ function evalAvgLogL(bd1::BallTreeDensity, at::Array{Float64,1})
     error("evalAvgLogL(bd1::BallTreeDensity, at::Array{Float64,1}) -- not implemented yet")
 end
 
+# estimate KL-divergence D_{KL}(p1 || p2)
+function kld(p1::BallTreeDensity, p2::BallTreeDensity)
+  evalAvgLogL(p1,p1) - evalAvgLogL(p2,p1)
+end
+
 function entropy(bd::BallTreeDensity)
     H = -evalAvgLogL(bd,bd)
     return H[1]
