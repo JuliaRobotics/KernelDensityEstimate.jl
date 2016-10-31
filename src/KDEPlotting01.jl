@@ -18,7 +18,7 @@ function draw1D!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Floa
   if e == Union{}
     ptArr = Any[]
 
-    l1 = Gadfly.layer(x=bins,y=yV,Geom.line, Gadfly.Theme(default_color=parse(Colorant,c)))
+    l1 = Gadfly.layer(x=bins,y=yV,Geom.line, Gadfly.Theme(default_color=parse(Colorant,c),line_width=2pt))
     push!(ptArr, l1)
     push!(ptArr, Guide.xlabel(xlbl))
     if !DOYTICKS
@@ -33,7 +33,7 @@ function draw1D!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Floa
     end
     e = Gadfly.plot(ptArr...)
   else
-    push!(e.layers, layer(x=bins, y=yV, Geom.line, Gadfly.Theme(default_color=parse(Colorant,c)))[1])
+    push!(e.layers, layer(x=bins, y=yV, Geom.line, Gadfly.Theme(default_color=parse(Colorant,c),line_width=2pt))[1])
   end
 
   #mx = maximum(y)
