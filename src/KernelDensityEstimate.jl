@@ -25,6 +25,7 @@ export
     getKDEMax,
     getKDEMean,
     kld,
+    evalAvgLogL,
     # approximate intersection volume
     intersIntgAppxIS,
 

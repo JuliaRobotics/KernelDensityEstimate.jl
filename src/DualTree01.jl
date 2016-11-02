@@ -382,16 +382,17 @@ function evaluateDualTree(bd::BallTreeDensity, pos::BallTreeDensity, lvFlag::Boo
         p = makeDualTree(bd, errTol)
     else
         posKDE = pos
-        p = makeDualTree(dens,posKDE,errTol)
+        p = makeDualTree(bd,posKDE,errTol)
     end
     return p
 end
 
 function evalAvgLogL(bd1::BallTreeDensity, bd2::BallTreeDensity)
-  L = evaluateDualTree(bd1, bd2, true)
+  L = evaluateDualTree(bd1, bd2, false) # true
   #printBallTree(bd1)
   W = getWeights(bd2)
   ind = find(L==0)
+  ll = nothing
   if sum(find(W[ind])) > 0
     #println("evalAvgLogL -- in if")
     ll=-Inf
