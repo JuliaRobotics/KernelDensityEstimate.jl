@@ -382,16 +382,17 @@ function evaluateDualTree(bd::BallTreeDensity, pos::BallTreeDensity, lvFlag::Boo
         p = makeDualTree(bd, errTol)
     else
         posKDE = pos
-        p = makeDualTree(dens,posKDE,errTol)
+        p = makeDualTree(bd,posKDE,errTol)
     end
     return p
 end
 
 function evalAvgLogL(bd1::BallTreeDensity, bd2::BallTreeDensity)
-  L = evaluateDualTree(bd1, bd2, true)
+  L = evaluateDualTree(bd1, bd2, false) # true
   #printBallTree(bd1)
   W = getWeights(bd2)
   ind = find(L==0)
+  ll = nothing
   if sum(find(W[ind])) > 0
     #println("evalAvgLogL -- in if")
     ll=-Inf
@@ -405,6 +406,11 @@ end
 
 function evalAvgLogL(bd1::BallTreeDensity, at::Array{Float64,1})
     error("evalAvgLogL(bd1::BallTreeDensity, at::Array{Float64,1}) -- not implemented yet")
+end
+
+# estimate KL-divergence D_{KL}(p1 || p2)
+function kld(p1::BallTreeDensity, p2::BallTreeDensity)
+  evalAvgLogL(p1,p1) - evalAvgLogL(p2,p1)
 end
 
 function entropy(bd::BallTreeDensity)
