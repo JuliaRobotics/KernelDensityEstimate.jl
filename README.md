@@ -1,7 +1,7 @@
 # KernelDensityEstimate.jl
 
-[![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.4.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.4) [![codecov.io](https://codecov.io/github/dehann/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/dehann/KernelDensityEstimate.jl?branch=master)
-
+[![codecov.io](https://codecov.io/github/dehann/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/dehann/KernelDensityEstimate.jl?branch=master)
+[![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.4.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.4)
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.5.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.5)
 
 Kernel Density Estimate with product approximation using multiscale Gibbs sampling.
@@ -16,7 +16,7 @@ Installation
 ============
 
     Pkg.add("KernelDensityEstimate")
-    
+
 Newest stuff:
 
     Pkg.checkout("KernelDensityEstimate")
@@ -62,7 +62,7 @@ Direct histogram of points from the product
     using Gadfly
     Pl2 = Gadfly.plot(x=pGM[1,:],y=pGM[2,:],Geom.histogram2d);
     draw(PDF("product.pdf",15cm,8cm),hstack(Pl1,Pl2))
-    
+
 ![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/product.png)
 
 KDE product between non-gaussian distributions
@@ -76,3 +76,14 @@ KDE product between non-gaussian distributions
     plotKDE([p;q;pq],c=["red";"green";"black"])
 
 ![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/RayleighBetaProduct.png)
+
+Draw multidimensional distributions as marginalized 2D contour plots
+
+    using KernelDensityEstimate, Gadfly
+    axis=[[-5.0;5]';[-2.0;2.0]';[-10.0;10]';[-5.0;5]']
+    draw(PDF("test.pdf",30cm,20cm),
+     plotKDE( kde!(randn(4,200)) ) )
+    draw(PNG("MultidimPlot.png",30cm,20cm),
+     plotKDE( kde!(randn(4,200)), axis=axis, dims=2:4, dimLbls=["w";"x";"y";"z"]) )
+
+![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/MultidimPlot.png)

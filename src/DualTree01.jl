@@ -545,16 +545,23 @@ function kde!(points::Array{Float64,1}, autoselect::ASCIIString="lcv")
 end
 
 function getKDERange(bd::BallTreeDensity; extend::Float64=0.1)
+  rangeV = nothing
+  pts = getPoints(bd)
   if (bd.bt.dims == 1)
-    pts = getPoints(bd)
     rangeV = [minimum(pts),maximum(pts)]
+    dr = extend*(rangeV[2]-rangeV[1])
+    rangeV[1] = rangeV[1] - dr;
+    rangeV[2] = rangeV[2] + dr;
   else
-      return error("getKDERange(::BTD) -- multidimensional not implemented yet")
+    rangeV = zeros(bd.bt.dims,2)
+    for i in 1:bd.bt.dims
+      rangeV[i,1], rangeV[i,2] = minimum(pts[i,:]), maximum(pts[i,:])
+      dr = extend*(rangeV[i,2]-rangeV[i,1])
+      rangeV[i,1] = rangeV[i,1] - dr;
+      rangeV[i,2] = rangeV[i,2] + dr;
+    end
   end
 
-  dr = extend*(rangeV[2]-rangeV[1])
-  rangeV[1] = rangeV[1] - dr;
-  rangeV[2] = rangeV[2] + dr;
   return rangeV
 end
 
