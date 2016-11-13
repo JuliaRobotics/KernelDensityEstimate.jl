@@ -41,11 +41,6 @@ function draw1D!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Floa
   return e
 end
 
-function plotKDE(bd::BallTreeDensity;
-          N=200, c::Array{ASCIIString,1}=["black"],rmax=-Inf,rmin=Inf,
-          xlbl="X", legend=nothing)
-    plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend)
-end
 
 # function getKDERange(bd::BallTreeDensity; extend::Float64=0.1)
 #   if (bd.bt.dims == 1)
@@ -69,6 +64,7 @@ end
 
 function plotKDEContour(p::BallTreeDensity;
     xmin=-Inf,xmax=Inf,ymin=-Inf,ymax=Inf,
+    xlbl::ASCIIString="x", ylbl::ASCIIString="y",
     N=200)
 
   rangeV = getKDERange(p)
@@ -78,27 +74,49 @@ function plotKDEContour(p::BallTreeDensity;
   ymin = ymin != -Inf ? ymin : rangeV[2,1]
   ymax = ymax != Inf ? ymax : rangeV[2,2]
 
+
+
   Gadfly.plot(z=(x,y)->evaluateDualTree(p,([x;y]')')[1],
     x=linspace(xmin,xmax,N),
     y=linspace(ymin,ymax,N),
     Coord.Cartesian(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),
+    Guide.xlabel(xlbl), Guide.ylabel(ylbl),
     Geom.contour
   )
 end
 
-function drawPair(x::BallTreeDensity, dims::Vector{Int})
+function drawPair(x::BallTreeDensity, dims::Vector{Int};
+    axis::VoidUnion{Array{Float64,2}}=nothing,
+    dimLbls::VoidUnion{Vector{ASCIIString}}=nothing)
   # pts = getPoints(x);
+  xmin, xmax, ymin, ymax = -Inf,Inf,-Inf,Inf
+  if axis != nothing
+    xmin, xmax, ymin, ymax = axis[dims[1],1], axis[dims[1],2], axis[dims[2],1], axis[dims[2],2]
+  end
 
-  plotKDEContour(marginal(x,dims))
+  xlbl, ylbl = nothing, nothing
+  if dimLbls!=nothing
+    xlbl, ylbl = dimLbls[dims[1]], dimLbls[dims[2]]
+  end
+  plotKDEContour(marginal(x,dims),
+    xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,
+    xlbl=xlbl,ylbl=ylbl  )
 end
 
 function stacking(spp::Vector{Compose.Context})
   hstack(spp...)
 end
 
-function drawAllPairs(x::BallTreeDensity,dims::UnitRange{Int})
+# function to draw all pairs of mulitdimensional kernel density estimate
+# axis is matrix with rows as dimensions and two columns for min and max axis cutoffs
+function drawAllPairs(x::BallTreeDensity;
+      dims::VoidUnion{VectorRange{Int}}=nothing,
+      axis::VoidUnion{Array{Float64,2}}=nothing,
+      dimLbls::VoidUnion{Vector{ASCIIString}}=nothing )
   pts = getPoints(x);
   # e = [];
+  dims = dims != nothing ? dims : 1:Ndim(x)
+  dims = collect(dims)
   Nout = length(dims);
   PlotI2 = triu(repmat( (dims)' ,Nout, 1), 1);
   PlotI1 = triu(repmat((dims)' , Nout, 1)', 1);
@@ -108,7 +126,7 @@ function drawAllPairs(x::BallTreeDensity,dims::UnitRange{Int})
 
   subplots = Array{Gadfly.Plot,2}(Nrow,Ncol)
   for iT=1:length(PlotI2)
-    subplots[iT] = drawPair(x,[PlotI1[iT];PlotI2[iT]]);
+    subplots[iT] = drawPair(x,[PlotI1[iT];PlotI2[iT]], axis=axis, dimLbls=dimLbls);
   end;
 
   hh = Vector{Gadfly.Context}(Nrow)
@@ -118,44 +136,72 @@ function drawAllPairs(x::BallTreeDensity,dims::UnitRange{Int})
       try
         push!(sp,hstack(subplots[i,j])) # very hacky line, but Compose.Context and Gadfly.Plot not playing nice together in hstack
       catch e
+        print("KDEPlotting01.jl/drawAllPairs -- supressing all exceptions for stacking empty contour plots")
         println(e)
         push!(sp,Gadfly.context())
       end
     end
-    @show size(hh)
     hh[i] = stacking(sp) #hstack(sp) #subplots[i,:])
   end
 
   vstack(hh...)
 end
 
+# function to draw all pairs of mulitdimensional kernel density estimate
+# axis is matrix with rows as dimensions and two columns for min and max axis cutoffs
 function plotKDE(darr::Array{BallTreeDensity,1};
-      N::Int=200, c::Array{ASCIIString,1}=["black"],rmax=-Inf,rmin=Inf,
-      xlbl="X",legend=nothing)
-    if (length(c)<2)
-        c = repmat(c,length(darr))
-    end
-    lg = nothing
-    if legend != nothing
-      lg = Guide.manual_color_key("Legend", legend, c)
-    end
+      c::Array{ASCIIString,1}=["black"],
+      N::Int=200,
+      rmax=-Inf,rmin=Inf,  # should be deprecated
+      axis::VoidUnion{Array{Float64,2}}=nothing,
+      dims::VoidUnion{VectorRange{Int}}=nothing,
+      xlbl::ASCIIString="X",
+      legend::VoidUnion{ASCIIString}=nothing,
+      dimLbls::VoidUnion{Vector{ASCIIString}}=nothing )
+
+    # defaults
+    c = (length(c)>=2) ? c : repmat(c,length(darr))
+    lg = (legend == nothing) ? nothing : Guide.manual_color_key("Legend", legend, c)
+
     H = nothing
     i = 0
     for bd in darr
         i+=1
-        dim = 1:bd.bt.dims
+        dim = dims!=nothing ? dims : 1:Ndim(bd) #.bt.dims
+        dimLbls = dimLbls!=nothing ? dimLbls : ASCIIString["$(i)" for i in 1:Ndim(bd)]
+        dim = collect(dim)
         rangeV = getKDERange(bd)
-        if (bd.bt.dims == 1)
+        if (length(dim) == 1) # Ndim(bd)
           if rangeV[1] > rmin  rangeV[1] = rmin end
           if rmax > rangeV[2]  rangeV[2] = rmax end
-          H=draw1D!(bd,linspace(rangeV[1],rangeV[2],N), H, c[i],xlbl=xlbl,legend=lg) #,argsPlot,argsKDE
+          if axis!=nothing
+            di = dim[1]
+            if rangeV[1] > axis[di,1]  rangeV[1] = axis[di,1] end
+            if axis[di,2] > rangeV[2]  rangeV[2] = axis[di,2] end
+          end
+          H=draw1D!(marginal(bd,collect(dim)),linspace(rangeV[1],rangeV[2],N), H, c[i],xlbl=xlbl,legend=lg) #,argsPlot,argsKDE
         else
-          error("plotKDE(::BTD) -- multidimensional plotting not implemented yet")
+          # error("plotKDE(::BTD) -- multidimensional plotting not implemented yet")
+          # warn not overlaying multiple beliefs for multidimensional yet -- TODO
+          H = drawAllPairs(bd, axis=axis, dims=dim, dimLbls=dimLbls)
         end
     end
     return H
 end
 
+
+function plotKDE(bd::BallTreeDensity;
+      c::Array{ASCIIString,1}=["black"],
+      N::Int=200,
+      rmax=-Inf,rmin=Inf,  # should be deprecated
+      axis::VoidUnion{Array{Float64,2}}=nothing,
+      dims::VoidUnion{VectorRange{Int}}=nothing,
+      xlbl::ASCIIString="X",
+      legend::VoidUnion{ASCIIString}=nothing,
+      dimLbls::VoidUnion{Vector{ASCIIString}}=nothing )
+
+  plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend, dims=dims, axis=axis, dimLbls=dimLbls)
+end
 
 # function drawProdElement!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, H, offs, height, mcmc; c::ASCIIString="blue", myStyle::ASCIIString="")
 #   a = 0.4

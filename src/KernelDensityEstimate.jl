@@ -46,6 +46,10 @@ export
     *
 
 
+# useful aliases
+typealias VoidUnion{T} Union{Void, T}
+typealias VectorRange{T} Union{Vector{T},UnitRange{T}}
+
 include("BallTree01.jl")
 include("BallTreeDensity01.jl")
 include("DualTree01.jl")
