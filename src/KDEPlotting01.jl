@@ -9,13 +9,13 @@ function toggleYTicks()
 end
 
 function draw1D!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, e, c::ASCIIString="deepskyblue", myStyle::ASCIIString="";
-  xlbl="X",legend=Union{})
+  xlbl="X",legend=nothing)
   global DOYTICKS
 
   yV = evaluateDualTree(bd,bins)
   # clamp max y values
   yV[3.0 .< yV] = 3.0
-  if e == Union{}
+  if e == nothing
     ptArr = Any[]
 
     l1 = Gadfly.layer(x=bins,y=yV,Geom.line, Gadfly.Theme(default_color=parse(Colorant,c),line_width=2pt))
@@ -28,7 +28,7 @@ function draw1D!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Floa
       push!(ptArr,Guide.yticks(ticks=nothing))
       # e=Gadfly.plot(x=bins,y=yV,Geom.line, Gadfly.Theme(default_color=parse(Colorant,c)),Guide.xlabel(xlbl),Guide.ylabel(""),Guide.yticks(ticks=nothing))
     end
-    if legend != Union{}
+    if legend != nothing
       push!(ptArr, legend)
     end
     e = Gadfly.plot(ptArr...)
@@ -43,7 +43,7 @@ end
 
 function plotKDE(bd::BallTreeDensity;
           N=200, c::Array{ASCIIString,1}=["black"],rmax=-Inf,rmin=Inf,
-          xlbl="X", legend=Union{})
+          xlbl="X", legend=nothing)
     plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend)
 end
 
@@ -66,28 +66,91 @@ end
 #   return linspace(v[1],v[2],N)
 # end
 
+
+function plotKDEContour(p::BallTreeDensity;
+    xmin=-Inf,xmax=Inf,ymin=-Inf,ymax=Inf,
+    N=200)
+
+  rangeV = getKDERange(p)
+  size(rangeV,1) == 2 ? nothing : error("plotKDEContour must receive two dimensional kde, you gave $(Ndim(x))")
+  xmin = xmin != -Inf ? xmin : rangeV[1,1]
+  xmax = xmax != Inf ? xmax : rangeV[1,2]
+  ymin = ymin != -Inf ? ymin : rangeV[2,1]
+  ymax = ymax != Inf ? ymax : rangeV[2,2]
+
+  Gadfly.plot(z=(x,y)->evaluateDualTree(p,([x;y]')')[1],
+    x=linspace(xmin,xmax,N),
+    y=linspace(ymin,ymax,N),
+    Coord.Cartesian(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),
+    Geom.contour
+  )
+end
+
+function drawPair(x::BallTreeDensity, dims::Vector{Int})
+  # pts = getPoints(x);
+
+  plotKDEContour(marginal(x,dims))
+end
+
+function stacking(spp::Vector{Compose.Context})
+  hstack(spp...)
+end
+
+function drawAllPairs(x::BallTreeDensity,dims::UnitRange{Int})
+  pts = getPoints(x);
+  # e = [];
+  Nout = length(dims);
+  PlotI2 = triu(repmat( (dims)' ,Nout, 1), 1);
+  PlotI1 = triu(repmat((dims)' , Nout, 1)', 1);
+  PlotI1, PlotI2 = PlotI1[find(PlotI1)],  PlotI2[find(PlotI2)];
+  Ncol = round(Int, sqrt(length(PlotI2)));
+  Nrow = ceil(Int, length(PlotI2)/Ncol);
+
+  subplots = Array{Gadfly.Plot,2}(Nrow,Ncol)
+  for iT=1:length(PlotI2)
+    subplots[iT] = drawPair(x,[PlotI1[iT];PlotI2[iT]]);
+  end;
+
+  hh = Vector{Gadfly.Context}(Nrow)
+  for i in 1:Nrow
+    sp = Compose.Context[]
+    for j in 1:Ncol
+      try
+        push!(sp,hstack(subplots[i,j])) # very hacky line, but Compose.Context and Gadfly.Plot not playing nice together in hstack
+      catch e
+        println(e)
+        push!(sp,Gadfly.context())
+      end
+    end
+    @show size(hh)
+    hh[i] = stacking(sp) #hstack(sp) #subplots[i,:])
+  end
+
+  vstack(hh...)
+end
+
 function plotKDE(darr::Array{BallTreeDensity,1};
       N::Int=200, c::Array{ASCIIString,1}=["black"],rmax=-Inf,rmin=Inf,
-      xlbl="X",legend=Union{})
+      xlbl="X",legend=nothing)
     if (length(c)<2)
         c = repmat(c,length(darr))
     end
-    lg = Union{}
-    if legend != Union{}
+    lg = nothing
+    if legend != nothing
       lg = Guide.manual_color_key("Legend", legend, c)
     end
-    H = Union{}
+    H = nothing
     i = 0
     for bd in darr
         i+=1
         dim = 1:bd.bt.dims
+        rangeV = getKDERange(bd)
         if (bd.bt.dims == 1)
-          rangeV = getKDERange(bd)
           if rangeV[1] > rmin  rangeV[1] = rmin end
           if rmax > rangeV[2]  rangeV[2] = rmax end
           H=draw1D!(bd,linspace(rangeV[1],rangeV[2],N), H, c[i],xlbl=xlbl,legend=lg) #,argsPlot,argsKDE
         else
-            error("plotKDE(::BTD) -- multidimensional plotting not implemented yet")
+          error("plotKDE(::BTD) -- multidimensional plotting not implemented yet")
         end
     end
     return H
