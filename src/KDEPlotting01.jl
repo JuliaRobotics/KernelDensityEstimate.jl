@@ -62,32 +62,87 @@ end
 # end
 
 
-function plotKDEContour(p::BallTreeDensity;
+function plotKDEContour(pp::Vector{BallTreeDensity};
     xmin=-Inf,xmax=Inf,ymin=-Inf,ymax=Inf,
     xlbl::ASCIIString="x", ylbl::ASCIIString="y",
-    N=200)
+    N::Int=200,
+    c::VoidUnion{Vector{ASCIIString}}=nothing,
+    levels::VoidUnion{Int}=nothing )
 
-  rangeV = getKDERange(p)
+  rangeV = getKDERange(pp[1])
   size(rangeV,1) == 2 ? nothing : error("plotKDEContour must receive two dimensional kde, you gave $(Ndim(x))")
   xmin = xmin != -Inf ? xmin : rangeV[1,1]
   xmax = xmax != Inf ? xmax : rangeV[1,2]
   ymin = ymin != -Inf ? ymin : rangeV[2,1]
   ymax = ymax != Inf ? ymax : rangeV[2,2]
+  for i in 2:length(pp)
+    rangeV = getKDERange(p)
+    xmin = xmin <= rangeV[1,1] ? xmin : rangeV[1,1]
+    xmax = xmax >= rangeV[1,2] ? xmax : rangeV[1,2]
+    ymin = ymin <= rangeV[2,1] ? ymin : rangeV[2,1]
+    ymax = ymax >= rangeV[2,2] ? ymax : rangeV[2,2]
+  end
 
+  PL = []
 
+  # default options
+  CO = levels == nothing ? Geom.contour : Geom.contour(levels=levels)
+  if c == nothing
+    c = ["deepskyblue" for i in 1:length(pp)]
+  else
+    push!(PL, Gadfly.Scale.color_none)
+  end
+  # Gadfly.plot(
 
-  Gadfly.plot(z=(x,y)->evaluateDualTree(p,([x;y]')')[1],
+  i = 0
+  for p in pp
+    i+=1
+    push!(PL, layer(z=(x,y)->evaluateDualTree(p,([x;y]')')[1],
     x=linspace(xmin,xmax,N),
     y=linspace(ymin,ymax,N),
-    Coord.Cartesian(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),
-    Guide.xlabel(xlbl), Guide.ylabel(ylbl),
-    Geom.contour
-  )
+    Theme(default_color=parse(Colorant,c[i]))) )
+  end
+
+    push!(PL,Coord.Cartesian(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax))
+    push!(PL,Guide.xlabel(xlbl), Guide.ylabel(ylbl))
+    push!(PL,CO)
+
+  Gadfly.plot(PL...)
+end
+# p1 = plot(
+#        layer(z=ff,x=linspace(-5,5,100),y=linspace(-5,5,100), Geom.contour(levels=5),Theme(default_color=parse(Colorant,"blue"))),
+#        layer(z=ff2,x=linspace(-5,5,100),y=linspace(-5,5,100), Geom.contour(levels=5),Theme(default_color=parse(Colorant,"red"))),
+#        Scale.color_none)
+
+
+function plotKDEContour(p::BallTreeDensity;
+    xmin=-Inf,xmax=Inf,ymin=-Inf,ymax=Inf,
+    xlbl::ASCIIString="x", ylbl::ASCIIString="y",
+    N::Int=N,
+    c::VoidUnion{ASCIIString}=nothing,
+    levels::VoidUnion{Int}=nothing )
+
+  if c == nothing
+    return plotKDEContour([p],
+      xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,
+      xlbl=xlbl, ylbl=ylbl,
+      N=N,
+      c=nothing,
+      levels=levels )
+  else
+    return plotKDEContour([p],
+      xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,
+      xlbl=xlbl, ylbl=ylbl,
+      N=N,
+      c=[c],
+      levels=levels )
+  end
 end
 
 function drawPair(x::BallTreeDensity, dims::Vector{Int};
     axis::VoidUnion{Array{Float64,2}}=nothing,
-    dimLbls::VoidUnion{Vector{ASCIIString}}=nothing)
+    dimLbls::VoidUnion{Vector{ASCIIString}}=nothing,
+    levels::VoidUnion{Int}=nothing)
   # pts = getPoints(x);
   xmin, xmax, ymin, ymax = -Inf,Inf,-Inf,Inf
   if axis != nothing
@@ -100,7 +155,8 @@ function drawPair(x::BallTreeDensity, dims::Vector{Int};
   end
   plotKDEContour(marginal(x,dims),
     xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,
-    xlbl=xlbl,ylbl=ylbl  )
+    xlbl=xlbl,ylbl=ylbl,
+    levels=levels  )
 end
 
 function stacking(spp::Vector{Compose.Context})
@@ -112,7 +168,8 @@ end
 function drawAllPairs(x::BallTreeDensity;
       dims::VoidUnion{VectorRange{Int}}=nothing,
       axis::VoidUnion{Array{Float64,2}}=nothing,
-      dimLbls::VoidUnion{Vector{ASCIIString}}=nothing )
+      dimLbls::VoidUnion{Vector{ASCIIString}}=nothing,
+      levels::VoidUnion{Int}=nothing )
   pts = getPoints(x);
   # e = [];
   dims = dims != nothing ? dims : 1:Ndim(x)
@@ -126,25 +183,30 @@ function drawAllPairs(x::BallTreeDensity;
 
   subplots = Array{Gadfly.Plot,2}(Nrow,Ncol)
   for iT=1:length(PlotI2)
-    subplots[iT] = drawPair(x,[PlotI1[iT];PlotI2[iT]], axis=axis, dimLbls=dimLbls);
+    subplots[iT] = drawPair(x,[PlotI1[iT];PlotI2[iT]], axis=axis, dimLbls=dimLbls, levels=levels);
   end;
 
+  Nrow==1 && Ncol==1 ? nothing : println("Multiple planes stacked into Compose.Context, use Gadfly.draw(PNG(file.png,10cm,10cm),plothdl). Or PDF.")
   hh = Vector{Gadfly.Context}(Nrow)
   for i in 1:Nrow
     sp = Compose.Context[]
     for j in 1:Ncol
-      try
-        push!(sp,hstack(subplots[i,j])) # very hacky line, but Compose.Context and Gadfly.Plot not playing nice together in hstack
-      catch e
-        print("KDEPlotting01.jl/drawAllPairs -- supressing all exceptions for stacking empty contour plots")
-        println(e)
-        push!(sp,Gadfly.context())
+      if Nrow == 1 && Ncol==1
+
+      else
+        try
+          push!(sp,hstack(subplots[i,j])) # very hacky line, but Compose.Context and Gadfly.Plot not playing nice together in hstack
+        catch e
+          print("KDEPlotting01.jl/drawAllPairs -- supressing all exceptions for stacking empty contour plots")
+          println(e)
+          push!(sp,Gadfly.context())
+        end
       end
     end
     hh[i] = stacking(sp) #hstack(sp) #subplots[i,:])
   end
 
-  vstack(hh...)
+  return Nrow==1 && Ncol==1 ? subplots[1,1] : vstack(hh...)
 end
 
 # function to draw all pairs of mulitdimensional kernel density estimate
@@ -157,7 +219,8 @@ function plotKDE(darr::Array{BallTreeDensity,1};
       dims::VoidUnion{VectorRange{Int}}=nothing,
       xlbl::ASCIIString="X",
       legend::VoidUnion{ASCIIString}=nothing,
-      dimLbls::VoidUnion{Vector{ASCIIString}}=nothing )
+      dimLbls::VoidUnion{Vector{ASCIIString}}=nothing,
+      levels::VoidUnion{Int}=nothing )
 
     # defaults
     c = (length(c)>=2) ? c : repmat(c,length(darr))
@@ -183,7 +246,7 @@ function plotKDE(darr::Array{BallTreeDensity,1};
         else
           # error("plotKDE(::BTD) -- multidimensional plotting not implemented yet")
           # warn not overlaying multiple beliefs for multidimensional yet -- TODO
-          H = drawAllPairs(bd, axis=axis, dims=dim, dimLbls=dimLbls)
+          H = drawAllPairs(bd, axis=axis, dims=dim, dimLbls=dimLbls, levels=levels)
         end
     end
     return H
