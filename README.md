@@ -89,13 +89,13 @@ Draw multidimensional distributions as marginalized 2D contour plots
      [2*randn(1,round(Int,N/2))'+3.0;2*randn(1,round(Int,N/2))'-3.0]';
      2*randn(2,N)+3];
     p, q = kde!(randn(4,100)), kde!(pts);
-    draw(PNG("/home/dehann/Desktop/MultidimPlot.png",15cm,10cm),
+    draw(PNG("MultidimPlot.png",15cm,10cm),
      plotKDE( [p*q;p;q],c=["red";"black";"blue"], axis=axis, dims=2:4,dimLbls=["w";"x";"y";"z"], levels=4) )
 
 ![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/MultidimPlot.png)
 
     # or draw product natively
-    draw(PNG("/home/dehann/Desktop/MultidimPlotProd.png",10cm,7cm),
+    draw(PNG("MultidimPlotProd.png",10cm,7cm),
      plotKDE( p*q, axis=axis, dims=[2;4],dimLbls=["w";"x";"y";"z"]) )
 
 ![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/MultidimPlotProd.png)
