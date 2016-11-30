@@ -8,7 +8,7 @@ function toggleYTicks()
   return DOYTICKS
 end
 
-function draw1D!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, e, c::ASCIIString="deepskyblue", myStyle::ASCIIString="";
+function draw1D!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, e, c::String="deepskyblue", myStyle::String="";
   xlbl="X",legend=nothing)
   global DOYTICKS
 
@@ -64,9 +64,9 @@ end
 
 function plotKDEContour(pp::Vector{BallTreeDensity};
     xmin=-Inf,xmax=Inf,ymin=-Inf,ymax=Inf,
-    xlbl::ASCIIString="x", ylbl::ASCIIString="y",
+    xlbl::String="x", ylbl::String="y",
     N::Int=200,
-    c::VoidUnion{Vector{ASCIIString}}=nothing,
+    c::VoidUnion{Vector{String}}=nothing,
     levels::VoidUnion{Int}=nothing )
 
   rangeV = getKDERange(pp[1])
@@ -118,9 +118,9 @@ end
 
 function plotKDEContour(p::BallTreeDensity;
     xmin=-Inf,xmax=Inf,ymin=-Inf,ymax=Inf,
-    xlbl::ASCIIString="x", ylbl::ASCIIString="y",
+    xlbl::String="x", ylbl::String="y",
     N::Int=200,
-    c::VoidUnion{Vector{ASCIIString}}=nothing,
+    c::VoidUnion{Vector{String}}=nothing,
     levels::VoidUnion{Int}=nothing )
 
     plotKDEContour([p],
@@ -133,9 +133,9 @@ end
 
 function drawPair(xx::Vector{BallTreeDensity}, dims::Vector{Int};
     axis::VoidUnion{Array{Float64,2}}=nothing,
-    dimLbls::VoidUnion{Vector{ASCIIString}}=nothing,
+    dimLbls::VoidUnion{Vector{String}}=nothing,
     levels::VoidUnion{Int}=nothing,
-    c::VoidUnion{Vector{ASCIIString}}=nothing )
+    c::VoidUnion{Vector{String}}=nothing )
   # pts = getPoints(x);
   xmin, xmax, ymin, ymax = -Inf,Inf,-Inf,Inf
   if axis != nothing
@@ -167,9 +167,9 @@ end
 function drawAllPairs(xx::Vector{BallTreeDensity};
       dims::VoidUnion{VectorRange{Int}}=nothing,
       axis::VoidUnion{Array{Float64,2}}=nothing,
-      dimLbls::VoidUnion{Vector{ASCIIString}}=nothing,
+      dimLbls::VoidUnion{Vector{String}}=nothing,
       levels::VoidUnion{Int}=nothing,
-      c::VoidUnion{Vector{ASCIIString}}=nothing )
+      c::VoidUnion{Vector{String}}=nothing )
 
   # pts = getPoints(xx[1]);
   # e = [];
@@ -212,14 +212,14 @@ end
 # function to draw all pairs of mulitdimensional kernel density estimate
 # axis is matrix with rows as dimensions and two columns for min and max axis cutoffs
 function plotKDE(darr::Array{BallTreeDensity,1};
-      c::VoidUnion{Vector{ASCIIString}}=nothing,
+      c::VoidUnion{Vector{String}}=nothing,
       N::Int=200,
       rmax=-Inf,rmin=Inf,  # should be deprecated
       axis::VoidUnion{Array{Float64,2}}=nothing,
       dims::VoidUnion{VectorRange{Int}}=nothing,
-      xlbl::ASCIIString="X", # to be deprecated
-      legend::VoidUnion{ASCIIString}=nothing,
-      dimLbls::VoidUnion{Vector{ASCIIString}}=nothing,
+      xlbl::String="X", # to be deprecated
+      legend::VoidUnion{String}=nothing,
+      dimLbls::VoidUnion{Vector{String}}=nothing,
       levels::VoidUnion{Int}=nothing )
 
 
@@ -236,7 +236,7 @@ function plotKDE(darr::Array{BallTreeDensity,1};
 
     Ndims = Ndim(darr[1])
     dim = dims!=nothing ? dims : 1:Ndims #.bt.dims
-    dimLbls = dimLbls!=nothing ? dimLbls : ASCIIString["$(i)" for i in 1:Ndims]
+    dimLbls = dimLbls!=nothing ? dimLbls : String["$(i)" for i in 1:Ndims]
     dim = collect(dim)
     if length(dim) == 1
       for bd in darr
@@ -268,20 +268,20 @@ end
 
 
 function plotKDE(bd::BallTreeDensity;
-      c::VoidUnion{Vector{ASCIIString}}=nothing,
+      c::VoidUnion{Vector{String}}=nothing,
       N::Int=200,
       rmax=-Inf,rmin=Inf,  # should be deprecated
       axis::VoidUnion{Array{Float64,2}}=nothing,
       dims::VoidUnion{VectorRange{Int}}=nothing,
-      xlbl::ASCIIString="X",
-      legend::VoidUnion{ASCIIString}=nothing,
-      dimLbls::VoidUnion{Vector{ASCIIString}}=nothing,
+      xlbl::String="X",
+      legend::VoidUnion{String}=nothing,
+      dimLbls::VoidUnion{Vector{String}}=nothing,
       levels::VoidUnion{Int}=nothing )
 
   plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend, dims=dims, axis=axis, dimLbls=dimLbls, levels=levels)
 end
 
-# function drawProdElement!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, H, offs, height, mcmc; c::ASCIIString="blue", myStyle::ASCIIString="")
+# function drawProdElement!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, H, offs, height, mcmc; c::String="blue", myStyle::String="")
 #   a = 0.4
 #   if offs==0.0
 #     c = "red"
@@ -339,7 +339,7 @@ macro ifund(exp)
 end
 
 function drawHorDens(pDens::Array{BallTreeDensity,1}; N::Int=200,
-                    gt=Union{}, lbls=ASCIIString[], extend::Float64=0.1)
+                    gt=Union{}, lbls=String[], extend::Float64=0.1)
     len = length(pDens)
     h = Array{Gadfly.Plot,1}(len)
     r = Array{RemoteRef,1}(len)

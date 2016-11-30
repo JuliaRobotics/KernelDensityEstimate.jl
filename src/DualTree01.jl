@@ -505,7 +505,7 @@ function neighborMinMax(bd::BallTreeDensity)
     return minm, maxm
 end
 
-function ksize(bd::BallTreeDensity, t::ASCIIString="lcv")
+function ksize(bd::BallTreeDensity, t::String="lcv")
     # sticking with lcv to start
     Nd = bd.bt.dims; Np = bd.bt.num_points;
     ##if (t=="lcv" || 'unif','lcvp','unifp')
@@ -518,7 +518,7 @@ function ksize(bd::BallTreeDensity, t::ASCIIString="lcv")
     return npd
 end
 
-function kde!(points::Array{Float64,2}, autoselect::ASCIIString="lcv")
+function kde!(points::Array{Float64,2}, autoselect::String="lcv")
   p = kde!(points, [1.0])
   #BEFORE
   # p = ksize(p, autoselect)
@@ -535,12 +535,12 @@ function kde!(points::Array{Float64,2}, autoselect::ASCIIString="lcv")
   return p
 end
 
-#function kde!(points::Array{Float64,2}, autoselect::ASCIIString="lcv")
+#function kde!(points::Array{Float64,2}, autoselect::String="lcv")
 #  p = kde!(points, [retrieveTCP( points)])
 #  return p
 #end
 
-function kde!(points::Array{Float64,1}, autoselect::ASCIIString="lcv")
+function kde!(points::Array{Float64,1}, autoselect::String="lcv")
   return kde!(points',autoselect)
 end
 

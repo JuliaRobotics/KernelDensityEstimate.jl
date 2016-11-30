@@ -282,7 +282,7 @@ function changeWeights!(bd::BallTreeDensity, newWeights::Array{Float64,1})
 end
 
 
-function resample(p::BallTreeDensity, Np::Int64=-1, ksType::ASCIIString="lcv")
+function resample(p::BallTreeDensity, Np::Int64=-1, ksType::String="lcv")
 # resample(p,Np,KSType) -- construct a new estimate of the KDE p by sampling
 #                      Np new points; determines a bandwidth by ksize(pNew,KSType)
 #                      NOTE: KStype = 'discrete' resamples points by weight &

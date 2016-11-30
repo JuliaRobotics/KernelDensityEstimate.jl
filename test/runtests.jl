@@ -40,9 +40,9 @@ using Base.Test
 # end
 
 # parse the output from matlab process
-function parseMatPrintKDE(filename::ASCIIString)
+function parseMatPrintKDE(filename::String)
   fid = open(filename,"r")
-  dict = Dict{ASCIIString, Array{Float64,1}}()
+  dict = Dict{String, Array{Float64,1}}()
   for line in eachline(fid)
     twos = split(split(line,"\n")[1],"=")
     s = (split(split(twos[2],"[")[2],"]")[1])
@@ -52,7 +52,7 @@ function parseMatPrintKDE(filename::ASCIIString)
   return dict
 end
 
-function constructBTD(dict::Dict{ASCIIString, Array{Float64,1}})
+function constructBTD(dict::Dict{String, Array{Float64,1}})
   refbt = BallTree(dict["dims"][1],dict["num_points"][1],
   dict["centers"], #
   dict["ranges"], # =
