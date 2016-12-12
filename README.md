@@ -1,8 +1,10 @@
 # KernelDensityEstimate.jl
 
+[![Coveralls Status](http://coveralls.io/github/dehann/KernelDensityEstimate.jl/badge.svg?branch=master&service=github)](http://coveralls.io/github/dehann/KernelDensityEstimate.jl?branch=master)
 [![codecov.io](https://codecov.io/github/dehann/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/dehann/KernelDensityEstimate.jl?branch=master)
-[![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.4.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.4)
+
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.5.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.5)
+[![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.6.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.6)
 
 Kernel Density Estimate with product approximation using multiscale Gibbs sampling.
 
