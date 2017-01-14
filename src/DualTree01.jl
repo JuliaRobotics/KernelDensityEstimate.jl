@@ -585,6 +585,10 @@ end
 function getKDEMean(p::BallTreeDensity)
   return vec(Base.mean(getPoints(p),2))
 end
+function getKDEfit(p::BallTreeDensity; distribution=MvNormal)
+  fit(distribution, getPoints(p))
+end
+
 
 function intersIntgAppxIS(p::BallTreeDensity, q::BallTreeDensity;N=201)
   ndims = Ndim(p)

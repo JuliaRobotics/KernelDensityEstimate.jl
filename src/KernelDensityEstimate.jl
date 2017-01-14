@@ -3,6 +3,7 @@ __precompile__(true)
 module KernelDensityEstimate
 
 using Gadfly, Colors, Cairo, Fontconfig, Compose
+using Distributions
 
 import Base: promote_rule, *, rand
 
@@ -24,6 +25,7 @@ export
     getKDERange,
     getKDEMax,
     getKDEMean,
+    getKDEfit,
     kld,
     evalAvgLogL,
     # approximate intersection volume
