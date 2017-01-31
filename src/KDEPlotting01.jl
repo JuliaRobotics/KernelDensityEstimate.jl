@@ -8,8 +8,15 @@ function toggleYTicks()
   return DOYTICKS
 end
 
-function draw1D!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, e, c::String="deepskyblue", myStyle::String="";
-  xlbl="X",legend=nothing)
+function draw1D!(bd::BallTreeDensity,
+      bins::Union{Array{Float64,1},LinSpace{Float64}},
+      e,
+      c::String="deepskyblue",
+      myStyle::String="";
+      xlbl="X",
+      legend=nothing,
+      fill=false )
+  #
   global DOYTICKS
 
   yV = evaluateDualTree(bd,bins)
@@ -67,7 +74,8 @@ function plotKDEContour(pp::Vector{BallTreeDensity};
     xlbl::String="x", ylbl::String="y",
     N::Int=200,
     c::VoidUnion{Vector{String}}=nothing,
-    levels::VoidUnion{Int}=nothing )
+    levels::VoidUnion{Int}=nothing,
+    fill=false )
 
   rangeV = getKDERange(pp[1])
   size(rangeV,1) == 2 ? nothing : error("plotKDEContour must receive two dimensional kde, you gave $(Ndim(x))")
@@ -96,7 +104,7 @@ function plotKDEContour(pp::Vector{BallTreeDensity};
 
   i = 0
   for p in pp
-    @show i+=1
+    i+=1
     push!(PL, layer(z=(x,y)->evaluateDualTree(p,([x;y]')')[1],
     x=linspace(xmin,xmax,N),
     y=linspace(ymin,ymax,N),
@@ -106,7 +114,9 @@ function plotKDEContour(pp::Vector{BallTreeDensity};
 
     push!(PL,Coord.Cartesian(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax))
     push!(PL,Guide.xlabel(xlbl), Guide.ylabel(ylbl))
-    # push!(PL,CO)
+
+    # Might be a per layer theme
+    !fill ? nothing : push!(PL, Theme(background_color=colorant"white"))
 
   Gadfly.plot(PL...)
 end
@@ -121,21 +131,24 @@ function plotKDEContour(p::BallTreeDensity;
     xlbl::String="x", ylbl::String="y",
     N::Int=200,
     c::VoidUnion{Vector{String}}=nothing,
-    levels::VoidUnion{Int}=nothing )
+    levels::VoidUnion{Int}=nothing,
+    fill=false )
 
     plotKDEContour([p],
       xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,
       xlbl=xlbl, ylbl=ylbl,
       N=N,
       c=c,
-      levels=levels )
+      levels=levels,
+      fill=fill )
 end
 
 function drawPair(xx::Vector{BallTreeDensity}, dims::Vector{Int};
     axis::VoidUnion{Array{Float64,2}}=nothing,
     dimLbls::VoidUnion{Vector{String}}=nothing,
     levels::VoidUnion{Int}=nothing,
-    c::VoidUnion{Vector{String}}=nothing )
+    c::VoidUnion{Vector{String}}=nothing,
+    fill=false )
   # pts = getPoints(x);
   xmin, xmax, ymin, ymax = -Inf,Inf,-Inf,Inf
   if axis != nothing
@@ -151,11 +164,10 @@ function drawPair(xx::Vector{BallTreeDensity}, dims::Vector{Int};
   for x in xx
     push!(X, marginal(x,dims))
   end
-  @show length(X)
   plotKDEContour(X,
     xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,
     xlbl=xlbl,ylbl=ylbl,
-    levels=levels,c=c  )
+    levels=levels,c=c, fill=fill  )
 end
 
 function stacking(spp::Vector{Compose.Context})
@@ -169,7 +181,8 @@ function drawAllPairs(xx::Vector{BallTreeDensity};
       axis::VoidUnion{Array{Float64,2}}=nothing,
       dimLbls::VoidUnion{Vector{String}}=nothing,
       levels::VoidUnion{Int}=nothing,
-      c::VoidUnion{Vector{String}}=nothing )
+      c::VoidUnion{Vector{String}}=nothing,
+      fill=false )
 
   # pts = getPoints(xx[1]);
   # e = [];
@@ -183,7 +196,7 @@ function drawAllPairs(xx::Vector{BallTreeDensity};
 
   subplots = Array{Gadfly.Plot,2}(Nrow,Ncol)
   for iT=1:length(PlotI2)
-    subplots[iT] = drawPair(xx,[PlotI1[iT];PlotI2[iT]], axis=axis, dimLbls=dimLbls, levels=levels, c=c);
+    subplots[iT] = drawPair(xx,[PlotI1[iT];PlotI2[iT]], axis=axis, dimLbls=dimLbls, levels=levels, c=c, fill=fill);
   end;
 
   Nrow==1 && Ncol==1 ? nothing : println("Multiple planes stacked into Compose.Context, use Gadfly.draw(PNG(file.png,10cm,10cm),plothdl). Or PDF.")
@@ -220,7 +233,8 @@ function plotKDE(darr::Array{BallTreeDensity,1};
       xlbl::String="X", # to be deprecated
       legend::VoidUnion{String}=nothing,
       dimLbls::VoidUnion{Vector{String}}=nothing,
-      levels::VoidUnion{Int}=nothing )
+      levels::VoidUnion{Int}=nothing,
+      fill=false )
 
 
     # defaults
@@ -251,7 +265,7 @@ function plotKDE(darr::Array{BallTreeDensity,1};
               if rangeV[1] > axis[di,1]  rangeV[1] = axis[di,1] end
               if axis[di,2] > rangeV[2]  rangeV[2] = axis[di,2] end
             end
-            H=draw1D!(mbd,linspace(rangeV[1],rangeV[2],N), H, c[i],xlbl=xlbl,legend=lg) #,argsPlot,argsKDE
+            H=draw1D!(mbd,linspace(rangeV[1],rangeV[2],N), H, c[i],xlbl=xlbl,legend=lg, fill=fill) #,argsPlot,argsKDE
           else
             # error("plotKDE(::BTD) -- multidimensional plotting not implemented yet")
             # warn not overlaying multiple beliefs for multidimensional yet -- TODO
@@ -261,7 +275,7 @@ function plotKDE(darr::Array{BallTreeDensity,1};
       end
     else
       color = defaultcolor ? nothing : c
-      H = drawAllPairs(darr, axis=axis, dims=dim, dimLbls=dimLbls, levels=levels, c=color)
+      H = drawAllPairs(darr, axis=axis, dims=dim, dimLbls=dimLbls, levels=levels, c=color, fill=fill)
     end
     return H
 end
@@ -276,9 +290,10 @@ function plotKDE(bd::BallTreeDensity;
       xlbl::String="X",
       legend::VoidUnion{String}=nothing,
       dimLbls::VoidUnion{Vector{String}}=nothing,
-      levels::VoidUnion{Int}=nothing )
+      levels::VoidUnion{Int}=nothing,
+      fill=false )
 
-  plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend, dims=dims, axis=axis, dimLbls=dimLbls, levels=levels)
+  plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend, dims=dims, axis=axis, dimLbls=dimLbls, levels=levels, fill=fill)
 end
 
 # function drawProdElement!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, H, offs, height, mcmc; c::String="blue", myStyle::String="")
