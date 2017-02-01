@@ -547,7 +547,7 @@ end
 function getKDERange(bd::BallTreeDensity; extend::Float64=0.1)
   rangeV = nothing
   pts = getPoints(bd)
-  if (bd.bt.dims == 1)
+  if (bd.bt.dims == 1) && false
     rangeV = [minimum(pts),maximum(pts)]
     dr = extend*(rangeV[2]-rangeV[1])
     rangeV[1] = rangeV[1] - dr;
