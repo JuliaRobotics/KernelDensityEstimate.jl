@@ -565,6 +565,18 @@ function getKDERange(bd::BallTreeDensity; extend::Float64=0.1)
   return rangeV
 end
 
+function getKDERange(BD::Vector{BallTreeDensity}; extend::Float64=0.1)
+  rangeV = getKDERange(BD[1], extend=extend)
+  for i in 2:length(BD)
+    tmprv = getKDERange(BD[i], extend=extend)
+    for j in 1:Ndim(BD[i])
+      rangeV[j,1] = rangeV[j,1] < tmprv[j,1] ? rangeV[j,1] : tmprv[j,1]
+      rangeV[j,2] = rangeV[j,2] > tmprv[j,2] ? rangeV[j,2] : tmprv[j,2]
+    end
+  end
+  return rangeV
+end
+
 function getKDERangeLinspace(bd::BallTreeDensity; extend::Float64=0.1, N::Int=201)
   v = getKDERange(bd,extend=extend)
   return linspace(v[1],v[2],N)
