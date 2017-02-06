@@ -391,13 +391,13 @@ function evalAvgLogL(bd1::BallTreeDensity, bd2::BallTreeDensity)
   L = evaluateDualTree(bd1, bd2, false) # true
   #printBallTree(bd1)
   W = getWeights(bd2)
-  ind = find(L==0)
+  ind = find(L.==0.0)
   ll = nothing
   if sum(find(W[ind])) > 0
-    #println("evalAvgLogL -- in if")
+    # println("evalAvgLogL -- in if")
     ll=-Inf
   else
-    #println("evalAvgLogL -- in else")
+    # println("evalAvgLogL -- in else")
     L[ind] = 1
     ll = (log(L)')*W
   end
@@ -409,8 +409,22 @@ function evalAvgLogL(bd1::BallTreeDensity, at::Array{Float64,1})
 end
 
 # estimate KL-divergence D_{KL}(p1 || p2)
-function kld(p1::BallTreeDensity, p2::BallTreeDensity)
-  evalAvgLogL(p1,p1) - evalAvgLogL(p2,p1)
+function kld(p1::BallTreeDensity, p2::BallTreeDensity; method::Symbol=:direct)
+  if method == :direct
+    return evalAvgLogL(p1,p1) - evalAvgLogL(p2,p1)
+  elseif method == :unscented
+    D = Ndim(p1)
+    N = Npts(p1)
+    ptsE = getPoints(p1)
+    ptsE = repmat(ptsE,1,2*D+1)
+    bw = getBW(p1);
+    for i in 1:D
+      ptsE[i,(i-1)*N+(1:N)] = ptsE[i,(i-1)*N+(1:N)] + bw[i,:];
+      ptsE[i,(2*i-1)*N+(1:N)] = ptsE[i,(2*i-1)*N+(1:N)] - bw[i,:];
+    end;
+    pE = kde!(ptsE);
+    return evalAvgLogL(p1,pE) - evalAvgLogL(p2,pE);
+  end
 end
 
 function entropy(bd::BallTreeDensity)
