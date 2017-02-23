@@ -8,7 +8,9 @@ end
 
 DirectSize = 100;        # if N*M is less than this, just compute.
 
-type BallTreeDensity
+abstract MixtureDensity
+
+type BallTreeDensity <: MixtureDensity
   bt::BallTree
 
   KernelType

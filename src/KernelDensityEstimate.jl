@@ -8,6 +8,7 @@ using Distributions
 import Base: promote_rule, *, rand
 
 export
+    MixtureDensity,
     kde!,
     getPoints,
     getBW,
