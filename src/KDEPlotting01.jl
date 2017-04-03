@@ -15,6 +15,7 @@ function draw1D!{T <: AbstractString}(bd::BallTreeDensity,
       myStyle::T="";
       xlbl="X",
       legend=nothing,
+      title::VoidUnion{T}=nothing,
       fill=false )
   #
   global DOYTICKS
@@ -38,6 +39,10 @@ function draw1D!{T <: AbstractString}(bd::BallTreeDensity,
     if legend != nothing
       push!(ptArr, legend)
     end
+    if title != nothing
+      push!(ptArr, Guide.title(title))
+    end
+
     e = Gadfly.plot(ptArr...)
   else
     push!(e.layers, layer(x=bins, y=yV, Geom.line, Gadfly.Theme(default_color=parse(Colorant,c),line_width=2pt))[1])
@@ -55,6 +60,7 @@ function plotKDEContour{T <: AbstractString}(pp::Vector{BallTreeDensity};
     N::Int=200,
     c::VoidUnion{Vector{T}}=nothing,
     legend=nothing,
+    title::VoidUnion{T}=nothing,
     levels::VoidUnion{Int}=nothing,
     fill=false )
 
@@ -103,6 +109,10 @@ function plotKDEContour{T <: AbstractString}(pp::Vector{BallTreeDensity};
     push!(PL, legend)
   end
 
+  if title != nothing
+    push!(PL, Guide.title(title))
+  end
+
   Gadfly.plot(PL...)
 end
 # p1 = plot(
@@ -117,6 +127,7 @@ function plotKDEContour{T <: AbstractString}(p::BallTreeDensity;
     N::Int=200,
     c::VoidUnion{Vector{T}}=nothing,
     legend=nothing,
+    title::VoidUnion{T}=nothing,
     levels::VoidUnion{Int}=nothing,
     fill=false )
 
@@ -126,6 +137,7 @@ function plotKDEContour{T <: AbstractString}(p::BallTreeDensity;
       N=N,
       c=c,
       legend=legend,
+      title=title,
       levels=levels,
       fill=fill )
 end
@@ -134,6 +146,7 @@ function drawPair{T <: AbstractString}(xx::Vector{BallTreeDensity}, dims::Vector
     axis::VoidUnion{Array{Float64,2}}=nothing,
     dimLbls::VoidUnion{Vector{T}}=nothing,
     legend=nothing,
+    title::VoidUnion{T}=nothing,
     levels::VoidUnion{Int}=nothing,
     c::VoidUnion{Vector{T}}=nothing,
     fill=false )
@@ -156,6 +169,7 @@ function drawPair{T <: AbstractString}(xx::Vector{BallTreeDensity}, dims::Vector
     xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,
     xlbl=xlbl,ylbl=ylbl,
     legend=legend,
+    title=title,
     levels=levels,c=c, fill=fill  )
 end
 
@@ -170,6 +184,7 @@ function drawAllPairs{T <: AbstractString}(xx::Vector{BallTreeDensity};
       axis::VoidUnion{Array{Float64,2}}=nothing,
       dimLbls::VoidUnion{Vector{T}}=nothing,
       legend=nothing,
+      title::VoidUnion{T}=nothing,
       levels::VoidUnion{Int}=nothing,
       c::VoidUnion{Vector{T}}=nothing,
       fill=false )
@@ -186,7 +201,7 @@ function drawAllPairs{T <: AbstractString}(xx::Vector{BallTreeDensity};
 
   subplots = Array{Gadfly.Plot,2}(Nrow,Ncol)
   for iT=1:length(PlotI2)
-    subplots[iT] = drawPair(xx,[PlotI1[iT];PlotI2[iT]], axis=axis, dimLbls=dimLbls, legend=legend, levels=levels, c=c, fill=fill);
+    subplots[iT] = drawPair(xx,[PlotI1[iT];PlotI2[iT]], axis=axis, dimLbls=dimLbls, legend=legend, title=title, levels=levels, c=c, fill=fill);
   end;
 
   Nrow==1 && Ncol==1 ? nothing : println("Multiple planes stacked into Compose.Context, use Gadfly.draw(PNG(file.png,10cm,10cm),plothdl). Or PDF.")
@@ -221,6 +236,7 @@ function plotKDE{T <: AbstractString}(darr::Array{BallTreeDensity,1};
       axis::VoidUnion{Array{Float64,2}}=nothing,
       dims::VoidUnion{VectorRange{Int}}=nothing,
       xlbl::T="X", # to be deprecated
+      title::VoidUnion{T}=nothing,
       legend::VoidUnion{Vector{T}}=nothing,
       dimLbls::VoidUnion{Vector{T}}=nothing,
       levels::VoidUnion{Int}=nothing,
@@ -255,14 +271,14 @@ function plotKDE{T <: AbstractString}(darr::Array{BallTreeDensity,1};
               if rangeV[1] > axis[di,1]  rangeV[1] = axis[di,1] end
               if axis[di,2] > rangeV[2]  rangeV[2] = axis[di,2] end
             end
-            H=draw1D!(mbd,linspace(rangeV[1],rangeV[2],N), H, c[i],xlbl=xlbl,legend=lg, fill=fill) #,argsPlot,argsKDE
+            H=draw1D!(mbd,linspace(rangeV[1],rangeV[2],N), H, c[i],xlbl=xlbl,legend=lg, title=title, fill=fill) #,argsPlot,argsKDE
           else
             #
           end
       end
     else
       color = defaultcolor ? nothing : c
-      H = drawAllPairs(darr, axis=axis, dims=dim, dimLbls=dimLbls, legend=lg, levels=levels, c=color, fill=fill)
+      H = drawAllPairs(darr, axis=axis, dims=dim, dimLbls=dimLbls, legend=lg, title=title, levels=levels, c=color, fill=fill)
     end
     return H
 end
@@ -276,11 +292,12 @@ function plotKDE{T <: AbstractString}(bd::BallTreeDensity;
       dims::VoidUnion{VectorRange{Int}}=nothing,
       xlbl::T="X",
       legend::VoidUnion{Vector{T}}=nothing,
+      title::VoidUnion{T}=nothing,
       dimLbls::VoidUnion{Vector{T}}=nothing,
       levels::VoidUnion{Int}=nothing,
       fill=false )
 
-  plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend, dims=dims, axis=axis, dimLbls=dimLbls, levels=levels, fill=fill)
+  plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend, dims=dims, axis=axis, dimLbls=dimLbls, levels=levels, title=title, fill=fill)
 end
 
 # function drawProdElement!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, H, offs, height, mcmc; c::String="blue", myStyle::String="")
