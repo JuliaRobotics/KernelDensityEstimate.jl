@@ -218,7 +218,7 @@ function rangeUnitTests()
   @show passt = passt && rangeTestProds(D=2,M=4);
   @show passt = passt && rangeTestProds(D=2,M=6);
   @show passt = passt && rangeTestProds(D=3,M=6, MCMC=10);
-  @show passt = passt && rangeTestProds(D=4,M=6, MCMC=10);
+  @show passt = passt && rangeTestProds(D=4,M=6, n=200, MCMC=10);
   # @show passt = passt && rangeTestProds(D=3,M=10, MCMC=10);
   @show passt = passt && rangeTestProds(D=3,M=5,N=300);
   @show passt = passt && rangeTestProds(D=2,M=7,n=300);
