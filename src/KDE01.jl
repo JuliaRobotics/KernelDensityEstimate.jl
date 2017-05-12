@@ -114,3 +114,17 @@ end
 function rand(p::BallTreeDensity, N::Int64=1)
     return KernelDensityEstimate.sample(p,N)[1]
 end
+
+
+
+function approxHilbertInnerProd(p::BallTreeDensity, phi::Function; N::Int=1000)
+  ran = getKDERange(p, extend=0.5)
+  intrv = (ran[2]-ran[1])/N
+  vec = linspace(ran..., N)
+  yval = phi.(vec)
+  intrv*sum(yval)
+end
+
+
+phic(x::Float64; μ::Float64=0.0, f::Float64=1.0) = cos((x-μ)*2*pi*f)
+phis(x::Float64; μ::Float64=0.0, f::Float64=1.0) = sin((x-μ)*2*pi*f)

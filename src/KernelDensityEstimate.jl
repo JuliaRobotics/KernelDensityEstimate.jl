@@ -31,6 +31,9 @@ export
     evalAvgLogL,
     # approximate intersection volume
     intersIntgAppxIS,
+    approxHilbertInnerProd,
+    phic,
+    phis,
 
     # product operation with Multiscale Gibbs sampling
     prodAppxMSGibbsS,

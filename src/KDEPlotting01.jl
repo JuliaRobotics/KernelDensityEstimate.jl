@@ -62,16 +62,17 @@ function plotKDEContour{T <: AbstractString}(pp::Vector{BallTreeDensity};
     legend=nothing,
     title::VoidUnion{T}=nothing,
     levels::VoidUnion{Int}=nothing,
-    fill=false )
+    fill=false,
+    extend::Float64=0.1 )
 
-  rangeV = getKDERange(pp[1])
+  rangeV = getKDERange(pp[1], extend=extend)
   size(rangeV,1) == 2 ? nothing : error("plotKDEContour must receive two dimensional kde, you gave $(Ndim(x))")
   xmin = xmin != -Inf ? xmin : rangeV[1,1]
   xmax = xmax != Inf ? xmax : rangeV[1,2]
   ymin = ymin != -Inf ? ymin : rangeV[2,1]
   ymax = ymax != Inf ? ymax : rangeV[2,2]
   for i in 2:length(pp)
-    rangeV = getKDERange(pp[i])
+    rangeV = getKDERange(pp[i], extend=extend)
     xmin = xmin <= rangeV[1,1] ? xmin : rangeV[1,1]
     xmax = xmax >= rangeV[1,2] ? xmax : rangeV[1,2]
     ymin = ymin <= rangeV[2,1] ? ymin : rangeV[2,1]
@@ -129,7 +130,8 @@ function plotKDEContour{T <: AbstractString}(p::BallTreeDensity;
     legend=nothing,
     title::VoidUnion{T}=nothing,
     levels::VoidUnion{Int}=nothing,
-    fill=false )
+    fill=false,
+    extend::Float64=0.1 )
 
     plotKDEContour([p],
       xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,
@@ -139,7 +141,8 @@ function plotKDEContour{T <: AbstractString}(p::BallTreeDensity;
       legend=legend,
       title=title,
       levels=levels,
-      fill=fill )
+      fill=fill,
+      extend=extend )
 end
 
 function drawPair{T <: AbstractString}(xx::Vector{BallTreeDensity}, dims::Vector{Int};
@@ -240,7 +243,8 @@ function plotKDE{T <: AbstractString}(darr::Array{BallTreeDensity,1};
       legend::VoidUnion{Vector{T}}=nothing,
       dimLbls::VoidUnion{Vector{T}}=nothing,
       levels::VoidUnion{Int}=nothing,
-      fill=false )
+      fill=false,
+      extend::Float64=0.1 )
 
 
     # defaults
@@ -262,7 +266,7 @@ function plotKDE{T <: AbstractString}(darr::Array{BallTreeDensity,1};
       for bd in darr
           i+=1
           mbd = marginal(bd,dim)
-          rangeV = getKDERange(mbd)
+          rangeV = getKDERange(mbd,extend=extend)
           if (length(dim) == 1) # Ndim(bd)
             if rangeV[1] > rmin  rangeV[1] = rmin end
             if rmax > rangeV[2]  rangeV[2] = rmax end
@@ -295,9 +299,10 @@ function plotKDE{T <: AbstractString}(bd::BallTreeDensity;
       title::VoidUnion{T}=nothing,
       dimLbls::VoidUnion{Vector{T}}=nothing,
       levels::VoidUnion{Int}=nothing,
-      fill=false )
+      fill=false,
+      extend::Float64=0.1 )
 
-  plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend, dims=dims, axis=axis, dimLbls=dimLbls, levels=levels, title=title, fill=fill)
+  plotKDE([bd],N=N,c=c,rmax=rmax,rmin=rmin,xlbl=xlbl,legend=legend, dims=dims, axis=axis, dimLbls=dimLbls, levels=levels, title=title, fill=fill, extend=extend)
 end
 
 # function drawProdElement!(bd::BallTreeDensity, bins::Union{Array{Float64,1},LinSpace{Float64}}, H, offs, height, mcmc; c::String="blue", myStyle::String="")
