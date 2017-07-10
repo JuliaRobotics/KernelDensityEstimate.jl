@@ -1,4 +1,4 @@
-function kde!(points::Array{Float64,2}, ks::Array{Float64,1}, weights::Array{Float64,1})
+function kde!(points::AbstractArray{Float64,2}, ks::Array{Float64,1}, weights::Array{Float64,1})
   Nd, Np = size(points)
   if (length(ks) == 1)
     ks = repmat(ks,Nd)
@@ -13,7 +13,7 @@ function kde!(points::Array{Float64,2}, ks::Array{Float64,1}, weights::Array{Flo
   #if (length())
 end
 
-function kde!(points::Array{Float64,2}, ks::Array{Float64,1})
+function kde!(points::AbstractArray{Float64,2}, ks::Array{Float64,1})
   Nd, Np = size(points)
   weights = ones(Np)
   kde!(points, ks, weights)
@@ -54,7 +54,7 @@ function getBW(bd::BallTreeDensity, ind::Array{Int64,1}=zeros(Int64,0))
   res = reshape(bd.bandwidth[(bd.bt.dims*bd.bt.num_points + 1):end],bd.bt.dims,bd.bt.num_points)
   s[:, perm ] = res[:,:]
   s = s[:,ind]
-  s = sqrt( s );  # stddev gaussian covariance
+  s = sqrt.(s)  # stddev gaussian covariance
   return s
 end
 

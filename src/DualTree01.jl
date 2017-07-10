@@ -47,7 +47,7 @@ function minDistGauss!(restmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::In
   @fastmath @inbounds begin
     restmp[1] = 0.0
     #tmp = 0.0
-    for (k=1:Ndim(atTree.bt))
+    for k=1:Ndim(atTree.bt)
       restmp[2] = abs( center(atTree.bt, aRoot, k) - center(bd.bt, dRoot, k) )
       restmp[2] -= rangeB(atTree.bt, aRoot, k) + rangeB(bd.bt, dRoot, k)
       restmp[2] = (restmp[2] > 0) ? restmp[2] : 0.0
@@ -360,7 +360,7 @@ function evaluateDualTree(bd::BallTreeDensity, pos::Array{Float64,2}, lvFlag::Bo
     return p
 end
 # should make this be the Union again TODO ??
-function evaluateDualTree(bd::BallTreeDensity, pos::Union{Array{Float64,1},LinSpace{Float64}}, lvFlag::Bool=false, errTol::Float64=1e-3)
+function evaluateDualTree(bd::BallTreeDensity, pos::AbstractArray{Float64,1}, lvFlag::Bool=false, errTol::Float64=1e-3)
     pos2 = zeros(1,length(pos))
     pos2[1,:] = pos[:]
     return evaluateDualTree(bd, pos2, lvFlag, errTol)
@@ -399,7 +399,7 @@ function evalAvgLogL(bd1::BallTreeDensity, bd2::BallTreeDensity)
   else
     # println("evalAvgLogL -- in else")
     L[ind] = 1
-    ll = (log(L)')*W
+    ll = (log.(L)')*W
   end
   return ll
 end
@@ -513,9 +513,9 @@ function neighborMinMax(bd::BallTreeDensity)
     tmp = (2*bd.bt.ranges).^2
     rang = reshape(bd.bt.ranges[1:(floor(Int64,end/2.0))],bd.bt.dims,bd.bt.num_points)
     maxm = sqrt(sum( (2.0*rang[:,1]).^2 ))
-    ssumt = sqrt(sum( (2.0*rang[:,1:(bd.bt.num_points-1)]).^2 ,1))
-    minm = minimum(ssumt[:])
-    minm = maximum([minm,1e-6]);
+    ssumt = sqrt.(sum( (2.0*rang[:,1:(bd.bt.num_points-1)]).^2 ,1))
+    minm = minimum(ssumt)
+    minm = max(minm, 1e-6)
     return minm, maxm
 end
 
@@ -532,7 +532,7 @@ function ksize(bd::BallTreeDensity, t::String="lcv")
     return npd
 end
 
-function kde!(points::Array{Float64,2}, autoselect::String="lcv")
+function kde!(points::AbstractArray{Float64,2}, autoselect::String="lcv")
   p = kde!(points, [1.0])
   #BEFORE
   # p = ksize(p, autoselect)
@@ -555,7 +555,7 @@ end
 #end
 
 function kde!(points::Array{Float64,1}, autoselect::String="lcv")
-  return kde!(points',autoselect)
+  return kde!(reshape(points, 1, length(points)), autoselect)
 end
 
 function getKDERange(bd::BallTreeDensity; extend::Float64=0.1)

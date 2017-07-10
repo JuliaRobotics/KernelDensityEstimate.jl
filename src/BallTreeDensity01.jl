@@ -8,7 +8,7 @@ end
 
 DirectSize = 100;        # if N*M is less than this, just compute.
 
-abstract MixtureDensity
+@compat abstract type MixtureDensity end
 
 type BallTreeDensity <: MixtureDensity
   bt::BallTree
