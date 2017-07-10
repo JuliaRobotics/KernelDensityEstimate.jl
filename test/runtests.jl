@@ -57,11 +57,12 @@ function constructBTD(dict::Dict{String, Array{Float64,1}})
   dict["centers"], #
   dict["ranges"], # =
   dict["weights"], #
-  round(Int64,dict["left_child"]), # =
-  round(Int64,dict["right_child"]), # =
-  round(Int64,dict["lowest_leaf"]), # =
-  round(Int64,dict["highest_leaf"]), # =
-  round(Int64,dict["permutation"]), # =
+  # can use . syntax when Julia 0.5 support is dropped
+  map(t -> round(Int64(t)),dict["left_child"]), # =
+  map(t -> round(Int64(t)),dict["right_child"]), # =
+  map(t -> round(Int64(t)),dict["lowest_leaf"]), # =
+  map(t -> round(Int64(t)),dict["highest_leaf"]), # =
+  map(t -> round(Int64(t)),dict["permutation"]), # =
   0, +, +, Union{} )
 
   refbtd = BallTreeDensity(refbt, Union{}, 0,
@@ -195,7 +196,7 @@ function testProds(;D=3,M=6,N=100,n=100, dev=1.0, MCMC=5)
   [push!(P, kde!(dev*randn(D,N))) for i in 1:M];
   dummy = kde!(randn(D,n),[1.0]);
   pGM, = prodAppxMSGibbsS(dummy, P, Union{}, Union{}, MCMC);
-  sum(abs(pGM))<1e-14 ? error("testProds -- prodAppxMSGibbsS, nothing in pGM, len $(length(P))") : nothing
+  sum(abs, pGM) < 1e-14 ? error("testProds -- prodAppxMSGibbsS, nothing in pGM, len $(length(P))") : nothing
   prodDev = sqrt(dev^(2*M)/(M*(dev^2)))
   T1 = norm(Base.mean(pGM,2)) < 1.0*prodDev
   T2 = true

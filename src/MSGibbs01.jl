@@ -37,7 +37,7 @@ function makeEmptyGbGlb()
                 zeros(0),
                 zeros(0),
                 ones(Int64,0),
-                Array(BallTreeDensity,1),
+                Vector{BallTreeDensity}(1),
                 ones(Int64,1,0),
                 ones(Int64,1,0),
                 zeros(Int64,0),

@@ -3,7 +3,7 @@ __precompile__(true)
 module KernelDensityEstimate
 
 using Gadfly, Colors, Cairo, Fontconfig, Compose
-using Distributions
+using Distributions, Compat
 
 import Base: promote_rule, *, rand
 
@@ -50,8 +50,8 @@ export
 
 
 # useful aliases
-typealias VoidUnion{T} Union{Void, T}
-typealias VectorRange{T} Union{Vector{T},UnitRange{T}}
+@compat VoidUnion{T}   = Union{Void, T}
+@compat VectorRange{T} = Union{Vector{T},UnitRange{T}}
 
 include("BallTree01.jl")
 include("BallTreeDensity01.jl")

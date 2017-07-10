@@ -9,7 +9,7 @@ function toggleYTicks()
 end
 
 function draw1D!{T <: AbstractString}(bd::BallTreeDensity,
-      bins::Union{Array{Float64,1},LinSpace{Float64}},
+      bins::AbstractArray{Float64,1},
       e,
       c::T="deepskyblue",
       myStyle::T="";
