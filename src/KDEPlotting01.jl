@@ -361,7 +361,7 @@ function drawHorDens(pDens::Array{BallTreeDensity,1}; N::Int=200,
                     gt=Union{}, lbls=String[], extend::Float64=0.1)
     len = length(pDens)
     h = Array{Gadfly.Plot,1}(len)
-    r = Array{RemoteRef,1}(len)
+    # r = Array{Future,1}(len) #Array{RemoteRef,1}(len)
 
     if gt!=Union{}
       for i in 1:length(pDens)
