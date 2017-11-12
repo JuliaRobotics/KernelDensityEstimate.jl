@@ -82,7 +82,7 @@ function maxDistGauss!(rettmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::In
             @inbounds rettmp[1] -= (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
         else
             #@inbounds result = result - (tmp*tmp)/(bwMin(bd, dRoot)[k]) + (log(bwMax(bd.bt, Root))[k])
-            @inbounds rettmp[1] -= (rettmp[2]*rettmp[2])/(bwMin(bd, dRoot, k)) + (log(bwMax(bd.bt, Root, k)))
+            @inbounds rettmp[1] -= (rettmp[2]*rettmp[2])/(bwMin(bd, dRoot, k)) + (log(bwMax(bd.bt, dRoot, k))) # TODO - Root not defined here
         end
       end
     end
