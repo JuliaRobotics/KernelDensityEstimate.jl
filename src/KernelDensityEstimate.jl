@@ -2,7 +2,7 @@ __precompile__(true)
 
 module KernelDensityEstimate
 
-using Gadfly, Colors, Cairo, Fontconfig, Compose
+# using Gadfly, Colors, Cairo, Fontconfig, Compose
 using Distributions, Compat
 
 import Base: promote_rule, *, rand
@@ -36,17 +36,18 @@ export
     prodAppxMSGibbsS,
 
     # Gadfly plotting functions
-    plotKDE,
-    plotKDEContour,
-    drawPair,
-    drawAllPairs,
-    stackMarginals,
-    vstackedPlots,
-    drawHorDens,
-    toggleYTicks,
+    # plotKDE,
+    # plotKDEContour,
+    # drawPair,
+    # drawAllPairs,
+    # stackMarginals,
+    # vstackedPlots,
+    # drawHorDens,
+    # toggleYTicks,
 
     # add * operator for kde product approximate
-    *
+    *,
+    VectorRange
 
 
 # useful aliases
@@ -57,7 +58,7 @@ include("BallTree01.jl")
 include("BallTreeDensity01.jl")
 include("DualTree01.jl")
 include("KDE01.jl")
-include("KDEPlotting01.jl")
+# include("KDEPlotting01.jl")
 include("MSGibbs01.jl")
 
 """
