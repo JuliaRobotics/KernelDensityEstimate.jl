@@ -45,7 +45,7 @@ end
 
 #s = zeros(dens.D,dens.N);
 #s(:,double(dens.perm(dens.N + (1:dens.N)))+1) = dens.bandwidth(:,dens.N + (1:dens.N));
-function getBW(bd::BallTreeDensity, ind::Array{Int64,1}=zeros(Int64,0))
+function getBW(bd::BallTreeDensity, ind::Array{Int,1}=zeros(Int,0))
   if length(ind)==0
     ind=1:bd.bt.num_points
   end
@@ -58,7 +58,7 @@ function getBW(bd::BallTreeDensity, ind::Array{Int64,1}=zeros(Int64,0))
   return s
 end
 
-function getWeights(bd::BallTreeDensity, ind::Array{Int64,1}=zeros(Int64,0))
+function getWeights(bd::BallTreeDensity, ind::Array{Int,1}=zeros(Int,0))
   if length(ind)==0
     ind=1:bd.bt.num_points
   end
@@ -69,7 +69,7 @@ function getWeights(bd::BallTreeDensity, ind::Array{Int64,1}=zeros(Int64,0))
   return wts
 end
 
-function marginal(bd::BallTreeDensity, ind::Array{Int64,1})
+function marginal(bd::BallTreeDensity, ind::Array{Int,1})
   pts = getPoints(bd)
   if size(bd.bandwidth,2) > 2*bd.bt.num_points
     sig = getBW(bd)
@@ -80,14 +80,14 @@ function marginal(bd::BallTreeDensity, ind::Array{Int64,1})
   p = kde!(pts[ind,:],sig[ind], wts)
 end
 
-function randKernel(N::Int64, M::Int64, t::Int64)
+function randKernel(N::Int, M::Int, t::Int)
   return randn(N,M)
 end
 
-function sample(npd::BallTreeDensity, Npts::Int64)
+function sample(npd::BallTreeDensity, Npts::Int)
   pts = getPoints(npd)
   points = zeros(npd.bt.dims, Npts)
-  ind = zeros(Int64,Npts)
+  ind = zeros(Int,Npts)
   bw  = getBW(npd)
   w = getWeights(npd);
   w = cumsum(w)
@@ -105,12 +105,12 @@ function sample(npd::BallTreeDensity, Npts::Int64)
   return points, ind
 end
 
-function sample(npd::BallTreeDensity, Npts::Int64, ind::Array{Int64,1})
+function sample(npd::BallTreeDensity, Npts::Int, ind::Array{Int,1})
   pts = getPoints(npd)
   points = pts[:,ind] + getBW(npd,ind).*randKernel(npd.bt.dims, length(ind), getType(npd))
   return points, ind
 end
 
-function rand(p::BallTreeDensity, N::Int64=1)
+function rand(p::BallTreeDensity, N::Int=1)
     return KernelDensityEstimate.sample(p,N)[1]
 end

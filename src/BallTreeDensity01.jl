@@ -14,7 +14,7 @@ type BallTreeDensity <: MixtureDensity
   bt::BallTree
 
   KernelType
-  multibandwidth::Int64               # flag: is bandwidth uniform?
+  multibandwidth::Int               # flag: is bandwidth uniform?
 
   means::Array{Float64,1}                  # Weighted mean of points from this level down
   bandwidth::Array{Float64,1}              # Variance or other multiscale bandwidth
@@ -33,49 +33,49 @@ getType(bd::BallTreeDensity) = bd.KernelType
 Ndim(bd::BallTreeDensity) = Ndim(bd.bt)
 Npts(bd::BallTreeDensity) = Npts(bd.bt)
 
-Npts(bd::BallTreeDensity, i::Int64) = Npts(bd.bt, i)
+Npts(bd::BallTreeDensity, i::Int) = Npts(bd.bt, i)
 
 ## todo make sure these two are working properly
-#function center(bd::BallTreeDensity, i::Int64)
+#function center(bd::BallTreeDensity, i::Int)
 #    return center(bd.bt, i)
 #end
-center(bd::BallTreeDensity, i::Int64) = center(bd.bt, i)
+center(bd::BallTreeDensity, i::Int) = center(bd.bt, i)
 
-#function rangeB(bd::BallTreeDensity, i::Int64)
+#function rangeB(bd::BallTreeDensity, i::Int)
 #    return rangeB(bd.bt, i)
 #end
-rangeB(bd::BallTreeDensity, i::Int64) = rangeB(bd.bt, i)
+rangeB(bd::BallTreeDensity, i::Int) = rangeB(bd.bt, i)
 
-weight(bd::BallTreeDensity, i::Int64) = weight(bd.bt,i)
+weight(bd::BallTreeDensity, i::Int) = weight(bd.bt,i)
 
-isLeaf(bd::BallTreeDensity, ind::Int64) = isLeaf(bd.bt, ind)
+isLeaf(bd::BallTreeDensity, ind::Int) = isLeaf(bd.bt, ind)
 
-validIndex(bd::BallTreeDensity, ind::Int64) = validIndex(bd.bt, ind)
+validIndex(bd::BallTreeDensity, ind::Int) = validIndex(bd.bt, ind)
 
-left(bd::BallTreeDensity, i::Int64) = left(bd.bt, i)
+left(bd::BallTreeDensity, i::Int) = left(bd.bt, i)
 
-right(bd::BallTreeDensity, i::Int64) = right(bd.bt, i)
+right(bd::BallTreeDensity, i::Int) = right(bd.bt, i)
 
-leafFirst(bd::BallTreeDensity, i::Int64) = leafFirst(bd.bt, i)
+leafFirst(bd::BallTreeDensity, i::Int) = leafFirst(bd.bt, i)
 
-leafLast(bd::BallTreeDensity, i::Int64) = leafLast(bd.bt, i)
+leafLast(bd::BallTreeDensity, i::Int) = leafLast(bd.bt, i)
 
-getIndexOf(bd::BallTreeDensity, i::Int64) = getIndexOf(bd.bt, i)
+getIndexOf(bd::BallTreeDensity, i::Int) = getIndexOf(bd.bt, i)
 
-mean(bd::BallTreeDensity, i::Int64) = bd.means[((i-1)*bd.bt.dims+1):end]
-mean(bd::BallTreeDensity, i::Int64, k::Int) = bd.means[((i-1)*bd.bt.dims+k)]
+mean(bd::BallTreeDensity, i::Int) = bd.means[((i-1)*bd.bt.dims+1):end]
+mean(bd::BallTreeDensity, i::Int, k::Int) = bd.means[((i-1)*bd.bt.dims+k)]
 
-variance(bd::BallTreeDensity, i::Int64) = bd.bandwidth[((i-1)*bd.bt.dims+1):end] # !!! only works for Gaussian
-variance(bd::BallTreeDensity, i::Int64, k::Int) = bd.bandwidth[((i-1)*bd.bt.dims+k)]
+variance(bd::BallTreeDensity, i::Int) = bd.bandwidth[((i-1)*bd.bt.dims+1):end] # !!! only works for Gaussian
+variance(bd::BallTreeDensity, i::Int, k::Int) = bd.bandwidth[((i-1)*bd.bt.dims+k)]
 
-bw(bd::BallTreeDensity, i::Int64) = bd.bandwidth[((i-1)*bd.bt.dims+1):end]
-bw(bd::BallTreeDensity, i::Int64, k::Int) = bd.bandwidth[((i-1)*bd.bt.dims+k)]
+bw(bd::BallTreeDensity, i::Int) = bd.bandwidth[((i-1)*bd.bt.dims+1):end]
+bw(bd::BallTreeDensity, i::Int, k::Int) = bd.bandwidth[((i-1)*bd.bt.dims+k)]
 
-bwMax(bd::BallTreeDensity, i::Int64) = bd.bandwidthMax[((i-1)*bd.bt.dims*bd.multibandwidth+1):end]
-bwMax(bd::BallTreeDensity, i::Int64, k::Int) = bd.bandwidthMax[((i-1)*bd.bt.dims*bd.multibandwidth+k)]
+bwMax(bd::BallTreeDensity, i::Int) = bd.bandwidthMax[((i-1)*bd.bt.dims*bd.multibandwidth+1):end]
+bwMax(bd::BallTreeDensity, i::Int, k::Int) = bd.bandwidthMax[((i-1)*bd.bt.dims*bd.multibandwidth+k)]
 
-bwMin(bd::BallTreeDensity, i::Int64) = bd.bandwidthMin[((i-1)*bd.bt.dims*bd.multibandwidth+1):end]
-bwMin(bd::BallTreeDensity, i::Int64, k::Int) = bd.bandwidthMin[((i-1)*bd.bt.dims*bd.multibandwidth+k)]
+bwMin(bd::BallTreeDensity, i::Int) = bd.bandwidthMin[((i-1)*bd.bt.dims*bd.multibandwidth+1):end]
+bwMin(bd::BallTreeDensity, i::Int, k::Int) = bd.bandwidthMin[((i-1)*bd.bt.dims*bd.multibandwidth+k)]
 
 bwUniform(bd::BallTreeDensity) = bd.multibandwidth==0
 
@@ -88,7 +88,7 @@ function buildTree!(bd::BallTreeDensity)
 end
 
 # Swap the ith leaf with the jth leaf.
-function swapDensity!(bd::BallTreeDensity, i::Int64, j::Int64)
+function swapDensity!(bd::BallTreeDensity, i::Int, j::Int)
   if (i==j)
       return Union{}
   end
@@ -113,7 +113,7 @@ function swapDensity!(bd::BallTreeDensity, i::Int64, j::Int64)
   end
 end
 
-function calcStatsDensity!(bd, root::Int64)
+function calcStatsDensity!(bd, root::Int)
   #println("calcStatsDensity! -- is running")
   calcStatsBall!(bd.bt, root)
 
@@ -190,8 +190,8 @@ function makeBallTreeDensity(_pointsMatrix::Array{Float64,2}, _weightsMatrix::Ar
   bt.calcStatsHandle = calcStatsDensity!
   bt.swapHandle = swapDensity!
 
-  Np::Int64 = bt.num_points
-  Nd::Int64 = bt.dims
+  Np::Int = bt.num_points
+  Nd::Int = bt.dims
 
   means = zeros(Nd*2*Np)
   means[(Np*Nd+1):end] = reshape(_pointsMatrix, Nd*Np, 1)
@@ -228,7 +228,7 @@ end
 # Figure out which of two children in this tree is closest to a given
 # ball in another tree.  Returns the index in this tree of the closer
 # child.
-function closer!(bd::BallTreeDensity, myLeft::Int64, myRight::Int64, otherTree::BallTreeDensity, otherRoot::Int64)
+function closer!(bd::BallTreeDensity, myLeft::Int, myRight::Int, otherTree::BallTreeDensity, otherRoot::Int)
   if (myRight==NO_CHILD || otherRoot==NO_CHILD)
     return myLeft
   end
@@ -250,7 +250,7 @@ function closer!(bd::BallTreeDensity, myLeft::Int64, myRight::Int64, otherTree::
   end
 end
 
-function closer!(bd::BallTreeDensity, i::Int64, j::Int64, other_tree::BallTreeDensity)
+function closer!(bd::BallTreeDensity, i::Int, j::Int, other_tree::BallTreeDensity)
   return closer!(bd,i,j,other_tree,root()) #othertree.root() = 1 anyway
 end
 
@@ -284,7 +284,7 @@ function changeWeights!(bd::BallTreeDensity, newWeights::Array{Float64,1})
 end
 
 
-function resample(p::BallTreeDensity, Np::Int64=-1, ksType::String="lcv")
+function resample(p::BallTreeDensity, Np::Int=-1, ksType::String="lcv")
 # resample(p,Np,KSType) -- construct a new estimate of the KDE p by sampling
 #                      Np new points; determines a bandwidth by ksize(pNew,KSType)
 #                      NOTE: KStype = 'discrete' resamples points by weight &

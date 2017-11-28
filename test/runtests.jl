@@ -6,19 +6,19 @@ using Base.Test
 # include("DualTree01.jl")
 
 # type BallTree
-#   dims::Int64                     # dimension of data
-#   num_points::Int64               # of points
+#   dims::Int                     # dimension of data
+#   num_points::Int               # of points
 #   centers::Array{Float64,1}       # ball centers, dims numbers per ball
 #   ranges::Array{Float64,1}        # bounding box ranges, dims per ball, dist from center to one side
 #   weights::Array{Float64,1}       # total weight in each ball
 #
-#   left_child::Array{Int64,1}
-#   right_child::Array{Int64,1}     # left, right children; no parent indices
-#   lowest_leaf::Array{Int64,1}
-#   highest_leaf::Array{Int64,1}    # lower & upper leaf indices for each ball
-#   permutation::Array{Int64,1}     # point's position in the original data
+#   left_child::Array{Int,1}
+#   right_child::Array{Int,1}     # left, right children; no parent indices
+#   lowest_leaf::Array{Int,1}
+#   highest_leaf::Array{Int,1}    # lower & upper leaf indices for each ball
+#   permutation::Array{Int,1}     # point's position in the original data
 #
-#   next::Int64                     # internal var for placing the non-leaf nodes
+#   next::Int                     # internal var for placing the non-leaf nodes
 #
 #   swapHandle::Function
 #   calcStatsHandle::Function
@@ -28,7 +28,7 @@ using Base.Test
 #   bt::BallTree
 #
 #   KernelType
-#   multibandwidth::Int64               # flag: is bandwidth uniform?
+#   multibandwidth::Int               # flag: is bandwidth uniform?
 #
 #   means::Array{Float64,1}                  # Weighted mean of points from this level down
 #   bandwidth::Array{Float64,1}              # Variance or other multiscale bandwidth
@@ -58,11 +58,11 @@ function constructBTD(dict::Dict{String, Array{Float64,1}})
   dict["ranges"], # =
   dict["weights"], #
   # can use . syntax when Julia 0.5 support is dropped
-  map(t -> round(Int64(t)),dict["left_child"]), # =
-  map(t -> round(Int64(t)),dict["right_child"]), # =
-  map(t -> round(Int64(t)),dict["lowest_leaf"]), # =
-  map(t -> round(Int64(t)),dict["highest_leaf"]), # =
-  map(t -> round(Int64(t)),dict["permutation"]), # =
+  map(t -> round(Int(t)),dict["left_child"]), # =
+  map(t -> round(Int(t)),dict["right_child"]), # =
+  map(t -> round(Int(t)),dict["lowest_leaf"]), # =
+  map(t -> round(Int(t)),dict["highest_leaf"]), # =
+  map(t -> round(Int(t)),dict["permutation"]), # =
   0, +, +, Union{} )
 
   refbtd = BallTreeDensity(refbt, Union{}, 0,
@@ -87,7 +87,7 @@ function testSubtract(b1::BallTreeDensity, b2::BallTreeDensity, tol=1e-10)
         end
         nothing
     end
-    function testInds(a1::Array{Int64},a2::Array{Int64})
+    function testInds(a1::Array{Int},a2::Array{Int})
         for i in 1:length(a1)
             res = 0
             if (a1[i] < 0)
@@ -267,8 +267,3 @@ end
 @test integralAppxUnitTests()
 
 @test testRand()
-
-  # check for errors on plotting code
-p = kde!(rand(100));
-plotKDE([p],c=["red"]);
-@test true

@@ -1,6 +1,6 @@
 
 
-# function OLDminDistGauss(bd::BallTreeDensity, dRoot::Int64, atTree::BallTreeDensity, aRoot::Int64)
+# function OLDminDistGauss(bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)
 #   #@show "minDistGauss",  dRoot, aRoot
 #   atCenter = center(atTree, aRoot)
 #   densCenter = center(bd, dRoot)
@@ -20,7 +20,7 @@
 #   return result
 # end
 #
-# function OLDmaxDistGauss(bd::BallTreeDensity, dRoot::Int64, atTree::BallTreeDensity, aRoot::Int64)
+# function OLDmaxDistGauss(bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)
 #   atCenter = center(atTree, aRoot)
 #   densCenter = center(bd, dRoot)
 #   bw = bwMin(bd, dRoot)
@@ -39,7 +39,7 @@
 #   return result
 # end
 
-function minDistGauss!(restmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::Int64, atTree::BallTreeDensity, aRoot::Int64)
+function minDistGauss!(restmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)
   #@show "minDistGauss",  dRoot, aRoot
   #atCenter = center(atTree, aRoot)
   #densCenter = center(bd, dRoot)
@@ -62,7 +62,7 @@ function minDistGauss!(restmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::In
   nothing
 end
 
-function maxDistGauss!(rettmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::Int64, atTree::BallTreeDensity, aRoot::Int64)
+function maxDistGauss!(rettmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)
   #atCenter = center(atTree, aRoot)
   #densCenter = center(bd, dRoot)
   #bw = bwMin(bd, dRoot)
@@ -91,7 +91,7 @@ function maxDistGauss!(rettmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::In
 end
 
 #   Bounds on kernel values between points in this subtree & another
-function maxDistKer!(rettmp, bd::BallTreeDensity, dRoot::Int64, atTree::BallTreeDensity, aRoot::Int64)
+function maxDistKer!(rettmp, bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)
 #switch(getType(atTree))
 #  { case Gaussian:
    maxDistGauss!(rettmp, bd, dRoot, atTree, aRoot)
@@ -101,7 +101,7 @@ function maxDistKer!(rettmp, bd::BallTreeDensity, dRoot::Int64, atTree::BallTree
   nothing
 end
 
-function minDistKer!(rettmp, bd::BallTreeDensity, dRoot::Int64, atTree::BallTreeDensity, aRoot::Int64)
+function minDistKer!(rettmp, bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)
 #switch(getType())
 #  { case Gaussian:
    minDistGauss!(rettmp, bd, dRoot, atTree, aRoot)
@@ -121,7 +121,7 @@ type pArrHdls
     maxi::Array{Float64,1}
 end
 
-function pushDownLocal(atTree::BallTreeDensity, aRoot::Int64, hdl::pArrHdls)
+function pushDownLocal(atTree::BallTreeDensity, aRoot::Int, hdl::pArrHdls)
     if !(isLeaf(atTree, aRoot))
       close = atTree.left(aRoot);
       if (close != NO_CHILD)
@@ -148,7 +148,7 @@ function pushDownAll(locations::BallTreeDensity, hdl::pArrHdls)
     end
 end
 
-function recurseMinMax(atTree::BallTreeDensity, aRoot::Int64, hdl::pArrHdls)
+function recurseMinMax(atTree::BallTreeDensity, aRoot::Int, hdl::pArrHdls)
   l = left(atTree, aRoot); r = right(atTree, aRoot);
   if !(isLeaf(atTree, l)) recurseMinMax(atTree, l, hdl) end
   if !(isLeaf(atTree, r)) recurseMinMax(atTree, r, hdl) end
@@ -157,7 +157,7 @@ function recurseMinMax(atTree::BallTreeDensity, aRoot::Int64, hdl::pArrHdls)
   if (hdl.pMax[aRoot] < hdl.pMax[r]) hdl.pMax[aRoot] = hdl.pMax[r] end
 end
 
-function evalDirect(bd::BallTreeDensity, dRoot::Int64, atTree::BallTreeDensity, aRoot::Int64, hdl::pArrHdls)
+function evalDirect(bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int, hdl::pArrHdls)
   firstFlag = true;
   minVal=2e22;
   maxVal=0.0;
@@ -192,7 +192,7 @@ end
 # subtree (rooted at dRoot) of densTree at the locations given by
 # the subtree (rooted at aRoot) of *this, to within the error
 # percentage "maxErr"
-function evaluate(bd::BallTreeDensity, dRoot::Int64, atTree::BallTreeDensity, aRoot::Int64, maxErr::Float64, hdl::pArrHdls)
+function evaluate(bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int, maxErr::Float64, hdl::pArrHdls)
 
   #result = 0.0
   #tmp = 0.0
@@ -511,7 +511,7 @@ end
 
 function neighborMinMax(bd::BallTreeDensity)
     tmp = (2*bd.bt.ranges).^2
-    rang = reshape(bd.bt.ranges[1:(floor(Int64,end/2.0))],bd.bt.dims,bd.bt.num_points)
+    rang = reshape(bd.bt.ranges[1:(floor(Int,end/2.0))],bd.bt.dims,bd.bt.num_points)
     maxm = sqrt(sum( (2.0*rang[:,1]).^2 ))
     ssumt = sqrt.(sum( (2.0*rang[:,1:(bd.bt.num_points-1)]).^2 ,1))
     minm = minimum(ssumt)

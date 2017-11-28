@@ -382,7 +382,7 @@ function drawHorDens(pDens::Array{BallTreeDensity,1}; N::Int=200,
     hstack(h)
 end
 
-function stackMarginals(P::Array{BallTreeDensity,1}, m::Int64)
+function stackMarginals(P::Array{BallTreeDensity,1}, m::Int)
   ret = Array{BallTreeDensity,1}(length(P))
   for i in 1:length(P)
     ret[i] =  marginal(P[i],[m])#push!()
