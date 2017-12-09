@@ -3,32 +3,32 @@ type GbGlb
     particles::Array{Float64,1} # [Ndim x Ndens]      // means of selected particles
     variance::Array{Float64,1}  # [Ndim x Ndens]      //   variance of selected particles
     p::Array{Float64,1}         # [Np]                // probability of ith kernel
-    ind::Array{Int64,1}                    # current indexes of MCMC step
+    ind::Array{Int,1}                    # current indexes of MCMC step
     Malmost::Array{Float64,1}
     Calmost::Array{Float64,1}   #[Ndim x 1]   // Means & Cov. of all indices but j^th
     # Random number callback
     randU::Array{Float64,1}     # [Npoints * Ndens * (Niter+1)] uniformly distrib'd random variables
     randN::Array{Float64,1}     # [Ndim * Npoints] normally distrib'd random variables
-    Ndim::Int64
-    Ndens::Int64
-    Nlevels::Int64
-    dNp::Int64
+    Ndim::Int
+    Ndens::Int
+    Nlevels::Int
+    dNp::Int
     newPoints::Array{Float64,1}
     newWeights::Array{Float64,1}
-    newIndices::Array{Int64,1}
+    newIndices::Array{Int,1}
     trees::Array{BallTreeDensity,1}
-    levelList::Array{Int64,2}
-    levelListNew::Array{Int64,2}
-    dNpts::Array{Int64,1}
-    ruptr::Int64
-    rnptr::Int64
+    levelList::Array{Int,2}
+    levelListNew::Array{Int,2}
+    dNpts::Array{Int,1}
+    ruptr::Int
+    rnptr::Int
 end
 
 function makeEmptyGbGlb()
    return GbGlb(zeros(0),
                 zeros(0),
                 zeros(0),
-                zeros(Int64,0),
+                zeros(Int,0),
                 zeros(0),
                 zeros(0),
                 zeros(0),
@@ -36,11 +36,11 @@ function makeEmptyGbGlb()
                 0,0,0,0,
                 zeros(0),
                 zeros(0),
-                ones(Int64,0),
+                ones(Int,0),
                 Vector{BallTreeDensity}(1),
-                ones(Int64,1,0),
-                ones(Int64,1,0),
-                zeros(Int64,0),
+                ones(Int,1,0),
+                ones(Int,1,0),
+                zeros(Int,0),
                 0, 0)
 end
 
@@ -103,7 +103,7 @@ function calcIndices!(glb::GbGlb)
   #println("pppppppppppppppppppppppppppppppp")
 end
 
-function samplePoint!(X::Array{Float64,1}, glb::GbGlb, frm::Int64)
+function samplePoint!(X::Array{Float64,1}, glb::GbGlb, frm::Int)
   #counter = 1
   for j in 1:glb.Ndim
     mn=0.0; vn=0.0;
@@ -156,7 +156,7 @@ function levelDown!(glb::GbGlb)
   #println("A, ind $(glb.ind)")
 end
 
-function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::Int64)#pT::Array{Float64,1}
+function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::Int)#pT::Array{Float64,1}
   counter=1
   zz=0
   #z = 1
@@ -217,7 +217,7 @@ end
 
 ## SLOWEST PIECE OF THE COMPUTATION -- TODO
 # easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations...
-function makeFasterSampleIndex!(j::Int64, cmo::MSCompOpt, glb::GbGlb)
+function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb)
   #pT::Array{Float64,1}
   cmo.tmpC = 0.0
   cmo.tmpM = 0.0
@@ -242,7 +242,7 @@ function makeFasterSampleIndex!(j::Int64, cmo::MSCompOpt, glb::GbGlb)
   nothing
 end
 
-function sampleIndex(j::Int64, cmo::MSCompOpt, glb::GbGlb)
+function sampleIndex(j::Int, cmo::MSCompOpt, glb::GbGlb)
 #pT::Array{Float64,1}
   #dNp = glb.dNpts[j];  #trees[j].Npts();
   cmo.pT = 0.0
@@ -311,9 +311,9 @@ function printGlbs(g::GbGlb, tag=Union{})
     @show g.newIndices
 end
 
-function gibbs1(Ndens::Int64, trees::Array{BallTreeDensity,1},
-                Np::Int64, Niter::Int64,
-                pts::Array{Float64,1}, ind::Array{Int64,1},
+function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
+                Np::Int, Niter::Int,
+                pts::Array{Float64,1}, ind::Array{Int,1},
                 randU::Array{Float64,1}, randN::Array{Float64,1})
 
     glbs = makeEmptyGbGlb()
@@ -332,16 +332,16 @@ function gibbs1(Ndens::Int64, trees::Array{BallTreeDensity,1},
         end
     end
 
-    glbs.ind = ones(Int64,Ndens)
+    glbs.ind = ones(Int,Ndens)
     glbs.p = zeros(maxNp)
     glbs.Malmost = zeros(glbs.Ndim)
     glbs.Calmost = zeros(glbs.Ndim)
-    glbs.Nlevels = floor(Int64,((log(maxNp)/log(2))+1))
+    glbs.Nlevels = floor(Int,((log(maxNp)/log(2))+1))
     glbs.particles = zeros(glbs.Ndim*Ndens)
     glbs.variance  = zeros(glbs.Ndim*Ndens)
-    glbs.dNpts = zeros(Int64,Ndens)
-    glbs.levelList = ones(Int64,Ndens,maxNp)
-    glbs.levelListNew = ones(Int64,Ndens,maxNp)
+    glbs.dNpts = zeros(Int,Ndens)
+    glbs.levelList = ones(Int,Ndens,maxNp)
+    glbs.levelListNew = ones(Int,Ndens,maxNp)
     cmo = MSCompOpt(0.0, 0.0, 0.0)
     cmoi = MSCompOpt(0.0, 0.0, 0.0)
 
@@ -389,7 +389,7 @@ end
 
 # function remoteProdAppxMSGibbsS(npd0::BallTreeDensity,
 #                           npds::Array{BallTreeDensity,1}, anFcns, anParams,
-#                           Niter::Int64=5)
+#                           Niter::Int=5)
 #
 #   len = length(npds)
 #   arr = Array{Array{Float64,2},1}(len)
@@ -409,7 +409,7 @@ end
 
 function prodAppxMSGibbsS(npd0::BallTreeDensity,
                           npds::Array{BallTreeDensity,1}, anFcns, anParams,
-                          Niter::Int64=5)
+                          Niter::Int=5)
     # See  Ihler,Sudderth,Freeman,&Willsky, "Efficient multiscale sampling from products
     #         of Gaussian mixtures", in Proc. Neural Information Processing Systems 2003
 
@@ -423,19 +423,19 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
     #??pointsM = zeros(Ndim, Np)
     points = zeros(Ndim*Np)
     #??plhs[1] = mxCreateNumericMatrix(Ndens, Np, mxUINT32_CLASS, mxREAL);
-    indices=ones(Int64,Ndens*Np)
+    indices=ones(Int,Ndens*Np)
     maxNp = Np                        # largest # of particles we deal with
     for tree in npds
         if (maxNp < Npts(tree))
             maxNp = Npts(tree)
         end
     end
-    Nlevels = floor(Int64,(log(Float64(maxNp))/log(2.0))+1.0)  # how many levels to a balanced binary tree?
+    Nlevels = floor(Int,(log(Float64(maxNp))/log(2.0))+1.0)  # how many levels to a balanced binary tree?
 
     # Generate enough random numbers to get us through the rest of this
     if true
-      randU = rand(Int64(Np*Ndens*(Niter+2)*Nlevels))
-      randN = randn(Int64(Ndim*Np*(Nlevels+1)))
+      randU = rand(Int(Np*Ndens*(Niter+2)*Nlevels))
+      randN = randn(Int(Ndim*Np*(Nlevels+1)))
     else
         randU = vec(readdlm("randU.csv"))
         randN = vec(readdlm("randN.csv"))
