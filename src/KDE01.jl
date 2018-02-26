@@ -1,4 +1,4 @@
-function kde!(points::AbstractArray{Float64,2}, ks::Array{Float64,1}, weights::Array{Float64,1})
+function kde!(points::A, ks::Array{Float64,1}, weights::Array{Float64,1}) where {A <: AbstractArray{Float64,2}}
   Nd, Np = size(points)
   if (length(ks) == 1)
     ks = repmat(ks,Nd)
@@ -13,7 +13,7 @@ function kde!(points::AbstractArray{Float64,2}, ks::Array{Float64,1}, weights::A
   #if (length())
 end
 
-function kde!(points::AbstractArray{Float64,2}, ks::Array{Float64,1})
+function kde!(points::A, ks::Array{Float64,1}) where {A <: AbstractArray{Float64,2}}
   Nd, Np = size(points)
   weights = ones(Np)
   kde!(points, ks, weights)
