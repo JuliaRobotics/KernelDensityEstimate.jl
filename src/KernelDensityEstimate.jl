@@ -36,16 +36,6 @@ export
     # product operation with Multiscale Gibbs sampling
     prodAppxMSGibbsS,
 
-    # Gadfly plotting functions
-    # plotKDE,
-    # plotKDEContour,
-    # drawPair,
-    # drawAllPairs,
-    # stackMarginals,
-    # vstackedPlots,
-    # drawHorDens,
-    # toggleYTicks,
-
     # add * operator for kde product approximate
     *,
     VectorRange

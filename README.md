@@ -1,10 +1,11 @@
 # KernelDensityEstimate.jl
 
-[![Build Status](https://travis-ci.org/dehann/KernelDensityEstimate.jl.svg?branch=master)](https://travis-ci.org/dehann/KernelDensityEstimate.jl)
-[![codecov.io](https://codecov.io/github/dehann/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/dehann/KernelDensityEstimate.jl?branch=master)
+[![Build Status](https://travis-ci.org/JuliaRobotics/KernelDensityEstimate.jl.svg?branch=master)](https://travis-ci.org/JuliaRobotics/KernelDensityEstimate.jl)
+[![codecov.io](https://codecov.io/github/JuliaRobotics/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/JuliaRobotics/KernelDensityEstimate.jl?branch=master)
 
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.5.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.5)
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.6.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.6)
+[![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.7.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.7)
 
 Kernel Density Estimation **with product approximation using multiscale Gibbs sampling**.
 
@@ -12,7 +13,7 @@ All code is implemented in native Julia, including plotting which uses Gadfly. T
 
     Sudderth, Erik B.; Ihler, Alexander, et al. "Nonparametric belief propagation." Communications of the ACM 53.10 (2010): 95-103.
 
-The package has built in plotting functionality, using [Gadfly](https://github.com/dcjones/Gadfly.jl). This package is heavily used by [IncrementalInference](https://github.com/dehann/IncrementalInference.jl). Comments welcome.
+The package has built in plotting functionality, using [Gadfly](https://github.com/GiovineItalia/Gadfly.jl). This package is heavily used by [IncrementalInference](https://github.com/dehann/IncrementalInference.jl). Comments welcome.
 
 ## Installation
 
@@ -24,7 +25,7 @@ Newest stuff:
 
 ## Plotting Functions
 
-The plotting fucntions for this library have been separated into [KernelDensityEstimatePlotting.jl](http://www.github.com/dehann/KernelDensityEstimatePlotting.jl).
+The plotting fucntions for this library have been separated into [KernelDensityEstimatePlotting.jl](http://www.github.com/JuliaRobotics/KernelDensityEstimatePlotting.jl).
 
 # Examples
 
@@ -41,7 +42,7 @@ p75 = resample(p2,75)
 using KernelDensityEstimatePlotting
 plot([p100;p2;p75],c=["red";"green";"blue"]) # using Gadfly under the hood
 ```
-![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/FirstExamplePlot.png)
+![alt tag](https://raw.githubusercontent.com/JuliaRobotics/KernelDensityEstimate.jl/master/test/FirstExamplePlot.png)
 
 Multidimensional example
 ```julia
@@ -68,7 +69,7 @@ using Gadfly
 Pl2 = Gadfly.plot(x=pGM[1,:],y=pGM[2,:],Geom.histogram2d);
 draw(PDF("product.pdf",15cm,8cm),hstack(Pl1,Pl2))
 ```
-![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/product.png)
+![alt tag](https://raw.githubusercontent.com/JuliaRobotics/KernelDensityEstimate.jl/master/test/product.png)
 
 KDE product between non-gaussian distributions
 ```julia
@@ -80,7 +81,7 @@ pGM, = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, 5)
 pq = kde!(pGM)
 plot([p;q;pq],c=["red";"green";"black"])
 ```
-![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/RayleighBetaProduct.png)
+![alt tag](https://raw.githubusercontent.com/JuliaRobotics/KernelDensityEstimate.jl/master/test/RayleighBetaProduct.png)
 
 Draw multidimensional distributions as marginalized 2D contour plots
 ```julia
@@ -96,10 +97,16 @@ p, q = kde!(randn(4,100)), kde!(pts);
 draw(PNG("MultidimPlot.png",15cm,10cm),
  plot( [p*q;p;q],c=["red";"black";"blue"], axis=axis, dims=2:4,dimLbls=["w";"x";"y";"z"], levels=4) )
 ```
-![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/MultidimPlot.png)
+![alt tag](https://raw.githubusercontent.com/JuliaRobotics/KernelDensityEstimate.jl/master/test/MultidimPlot.png)
 ```julia
 # or draw product natively
 draw(PNG("MultidimPlotProd.png",10cm,7cm),
  plot( p*q, axis=axis, dims=[2;4],dimLbls=["w";"x";"y";"z"]) )
 ```
-![alt tag](https://raw.githubusercontent.com/dehann/KernelDensityEstimate.jl/master/test/MultidimPlotProd.png)
+![alt tag](https://raw.githubusercontent.com/JuliaRobotics/KernelDensityEstimate.jl/master/test/MultidimPlotProd.png)
+
+# Contributors
+
+The original C++ kde package was written by Alex Ihler and Mike Mandel in 2003, and has be rewritten in Julia and continuously modified by Dehann Fourie since.  
+
+Thank you to contributors and users alike, comments and improvements welcome according to JuliaLang and JuliaRobotics standards.
