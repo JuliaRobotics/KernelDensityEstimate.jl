@@ -5,6 +5,7 @@ module KernelDensityEstimate
 # using Gadfly, Colors, Cairo, Fontconfig, Compose
 using Distributions, Compat
 
+import Distributions: sample
 import Base: promote_rule, *, rand
 
 export

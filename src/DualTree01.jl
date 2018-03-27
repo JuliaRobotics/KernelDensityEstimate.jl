@@ -532,7 +532,7 @@ function ksize(bd::BallTreeDensity, t::String="lcv")
     return npd
 end
 
-function kde!(points::AbstractArray{Float64,2}, autoselect::String="lcv")
+function kde!(points::A, autoselect::String="lcv") where {A <: AbstractArray{Float64,2}}
   p = kde!(points, [1.0])
   #BEFORE
   # p = ksize(p, autoselect)
