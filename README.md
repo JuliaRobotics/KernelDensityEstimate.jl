@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.org/JuliaRobotics/KernelDensityEstimate.jl.svg?branch=master)](https://travis-ci.org/JuliaRobotics/KernelDensityEstimate.jl)
 [![codecov.io](https://codecov.io/github/JuliaRobotics/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/JuliaRobotics/KernelDensityEstimate.jl?branch=master)
 
+[![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.5.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.5)
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.6.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.6)
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.7.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.7)
 
@@ -12,7 +13,7 @@ All code is implemented in native Julia, including plotting which uses Gadfly. T
 
     Sudderth, Erik B.; Ihler, Alexander, et al. "Nonparametric belief propagation." Communications of the ACM 53.10 (2010): 95-103.
 
-The package has built in plotting functionality, using [Gadfly](https://github.com/dcjones/Gadfly.jl). This package is heavily used by [IncrementalInference](https://github.com/JuliaRobotics/IncrementalInference.jl). Comments welcome.
+The package has built in plotting functionality, using [Gadfly](https://github.com/GiovineItalia/Gadfly.jl). This package is heavily used by [IncrementalInference](https://github.com/dehann/IncrementalInference.jl). Comments welcome.
 
 ## Installation
 
