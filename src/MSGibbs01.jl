@@ -85,22 +85,17 @@ function initIndices!(glb::GbGlb)
     count+=1
     glb.ruptr += 1
   end
-  #glb.randU = glb.randU[count:end]
 end
 
 function calcIndices!(glb::GbGlb)
-  #println("oooooooooooooooooooooooooooooooo")
   @fastmath @inbounds begin
     for j in 1:glb.Ndens
       for z in 1:glb.Ndim
-        #@show j, z, glb.ind[j]
-        #@show mean(glb.trees[j],glb.ind[j])
         glb.particles[z+glb.Ndim*(j-1)] = mean(glb.trees[j],glb.ind[j], z)#[z];
         glb.variance[z+glb.Ndim*(j-1)]  = bw(glb.trees[j],glb.ind[j], z);
       end
     end
   end
-  #println("pppppppppppppppppppppppppppppppp")
 end
 
 function samplePoint!(X::Array{Float64,1}, glb::GbGlb, frm::Int)
@@ -109,16 +104,12 @@ function samplePoint!(X::Array{Float64,1}, glb::GbGlb, frm::Int)
     mn=0.0; vn=0.0;
     for z in 1:glb.Ndens                             # Compute mean and variances of
       vn += 1.0/glb.variance[j+glb.Ndim*(z-1)]       #   product of selected particles
-      #@show j, z, j+glb.Ndim*(z-1)
-      #@show round([mn, glb.particles[j+glb.Ndim*(z-1)], glb.variance[j+glb.Ndim*(z-1)]],3)
       mn += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
     end
     vn = 1.0/vn; mn *= vn;
     glb.rnptr += 1
     X[j+frm] = mn + sqrt(vn) * glb.randN[glb.rnptr] #counter       # then draw a sample from it
-    #counter+=1
   end
-  #glb.randN = glb.randN[counter:end]   # TODO ugh
   return Union{}
 end
 
@@ -126,49 +117,34 @@ function levelDown!(glb::GbGlb)
   for j in 1:glb.Ndens
     z = 1
     for y in 1:(glb.dNpts[j])
-      #@show "left", y, j, left(glb.trees[j], glb.levelList[j,y])
       if validIndex(glb.trees[j], left(glb.trees[j], glb.levelList[j,y]))
-        #@show "a", y, j, z, left(glb.trees[j], glb.levelList[j,y])
         glb.levelListNew[j,z] = left(glb.trees[j], glb.levelList[j,y])
         z+=1
       end
-      #@show "right", y, j, right(glb.trees[j], glb.levelList[j,y])
       if validIndex(glb.trees[j], right(glb.trees[j], glb.levelList[j,y]))
-        #@show "b", y, j, z, right(glb.trees[j], glb.levelList[j,y])
         glb.levelListNew[j,z] = right(glb.trees[j], glb.levelList[j,y]);
         z+=1
       end
-      #@show "last", glb.ind[j], glb.levelList[j,y]
       if (glb.ind[j] == glb.levelList[j,y])                      # make sure ind points to
-        #@show "c", y, j, z, glb.levelListNew[j,z-1]
         glb.ind[j] = glb.levelListNew[j,z-1]                     #  a child of the old ind
       end
     end
     glb.dNpts[j] = z-1
-    #println("levelDown! -- glb.dNpts[j=$j]=$(glb.dNpts[j])")
   end
   tmp = glb.levelList                            # make new list the current
   glb.levelList = glb.levelListNew              #   list and recycle the old
   glb.levelListNew=tmp
-
-  #println("A, levelList $(glb.levelList[1,:]), $(glb.levelList[2,:])")
-  #println("A, levelListNew $(glb.levelListNew[1,:]), $(glb.levelListNew[2,:])")
-  #println("A, ind $(glb.ind)")
 end
 
 function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::Int)#pT::Array{Float64,1}
   counter=1
   zz=0
-  #z = 1
   for j in 1:glb.Ndens
     dNp = glb.dNpts[j]    #trees[j].Npts();
     cmoi.pT = 0.0
 
-    ##z = 1
-    zz=glb.levelList[j,1]#z
-    #println("start zz=glb.levelList[$(j),$(z)]=$(zz)")
-    for z in 1:dNp ##while <=
-      #println("starting first z=$(z), dNp=$(dNp), zz=$(zz)")
+    zz=glb.levelList[j,1]
+    for z in 1:dNp
       glb.p[z] = 0.0
       for i in 1:glb.Ndim
         tmp = X[i+frm] - mean(glb.trees[j], zz, i)#[i]
@@ -177,12 +153,8 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
       end
       glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j], zz)
       cmoi.pT += glb.p[z]
-      #println("end ++z zz=glb.levelList[$(j),$(z)]=$(zz)")
-      ##z+=1
-      #println("1 ++z=$(z)")
       zz = z<dNp ? glb.levelList[j,z+1] : zz
     end
-    #println("after first zz=$(zz)")
     @simd for z in 1:dNp
         glb.p[z] /= cmoi.pT
     end
@@ -192,39 +164,32 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
 
     z=1
     zz=glb.levelList[j,z]
-    #println("mid zz=glb.levelList[$(j),$(z)]=$(zz)")
     while z<=(dNp-1)
-      #println("second zz=glb.levelList[$(j),$(z)]=$(zz)")
       if (glb.randU[glb.ruptr] <= glb.p[z]) # counter
         break;                              # new kernel from jth density
       end
       z+=1
-      #println("2 ++z=$(z)")
       if z<=dNp
         zz=glb.levelList[j,z]
       else
         error("This should never happend due to -1 MSGibbs01.jl")
       end
     end
-    glb.ind[j] = zz                          #  using those weights
-    #println("sampleIndices -- glb.ind[j=$(j)]=$(glb.ind[j])")
+    glb.ind[j] = zz
     counter+=1
     glb.ruptr += 1
   end
-  #glb.randU = glb.randU[counter:end]
   calcIndices!(glb);                         # recompute particles, variance
 end
 
 ## SLOWEST PIECE OF THE COMPUTATION -- TODO
 # easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations...
 function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb)
-  #pT::Array{Float64,1}
   cmo.tmpC = 0.0
   cmo.tmpM = 0.0
 
   zz=glb.levelList[j,1]
-  #z=1
-  for z in 1:(glb.dNpts[j])#dNp
+  for z in 1:(glb.dNpts[j])
     glb.p[z] = 0.0
     for i in 1:glb.Ndim
       cmo.tmpC = bw(glb.trees[j], zz, i) + glb.Calmost[i]
@@ -235,18 +200,11 @@ function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb)
     z < glb.dNpts[j] ? zz = glb.levelList[j,(z+1)] : nothing
   end
 
-  # incorrect! remember zz
-  #@simd for z in 1:glb.dNpts[j]
-  #  glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j], zz)
-  #end
   nothing
 end
 
 function sampleIndex(j::Int, cmo::MSCompOpt, glb::GbGlb)
-#pT::Array{Float64,1}
-  #dNp = glb.dNpts[j];  #trees[j].Npts();
   cmo.pT = 0.0
-
   # determine product of selected particles from all but jth density
   for i in 1:glb.Ndim
     iCalmost = 0.0; iMalmost = 0.0;
@@ -260,33 +218,27 @@ function sampleIndex(j::Int, cmo::MSCompOpt, glb::GbGlb)
 
   makeFasterSampleIndex!(j, cmo, glb)
 
-  @inbounds @simd for k in 1:glb.dNpts[j]
+  @simd for k in 1:glb.dNpts[j]
     cmo.pT += glb.p[k]
   end
-
-  @inbounds @simd for z in 1:glb.dNpts[j]#dNp
-    glb.p[z] /= cmo.pT            # normalize weights# normalize weights
+  @simd for z in 1:glb.dNpts[j]
+    glb.p[z] /= cmo.pT
   end
-  @inbounds @simd for z in 2:glb.dNpts[j]#dNp
-    glb.p[z] += glb.p[z-1]    # construct CDF and sample
+  @simd for z in 2:glb.dNpts[j]
+    glb.p[z] += glb.p[z-1]
   end
   zz=glb.levelList[j,1]
   z=1
-  while z<=(glb.dNpts[j]-1)#dNp
+  while z<=(glb.dNpts[j]-1)
     if (glb.randU[glb.ruptr] <= glb.p[z]) break;  end   #1  #   a new kernel from the jth
     z+=1
-    if z<=glb.dNpts[j]#dNp
+    if z<=glb.dNpts[j]
       zz=glb.levelList[j,z]
-      #println("sampleIndex 2++z, , zz=glb.levelList[$(j),$(z)]=$(zz)")
     end
   end
-  glb.ind[j] = zz;                                          #   density using these weights
-  #glb.randU = glb.randU[2:end]
+  glb.ind[j] = zz;
   glb.ruptr += 1
-
-  for i in 1:glb.Ndim
-    #@show round(glb.trees[j].means, 3)
-    #@show i, j, glb.ind[j], mean(glb.trees[j], glb.ind[j])
+  @simd for i in 1:glb.Ndim
     glb.particles[i+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], i)#[i]
     glb.variance[i+glb.Ndim*(j-1)]  = bw(glb.trees[j], glb.ind[j], i)#[i];
   end
@@ -345,86 +297,50 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
     cmo = MSCompOpt(0.0, 0.0, 0.0)
     cmoi = MSCompOpt(0.0, 0.0, 0.0)
 
-    ##@show glbs.ruptr, size(glbs.randU)
-    for s in 1:Np   #   (for each sample:)
-          #println("+++++++++++++++++++++++++++++NEW POINT+++++++++++++++++++++++++++++++++++++++")
+    for s in 1:Np
         frm = ((s-1)*glbs.Ndim)
 
         levelInit!(glbs)
         initIndices!(glbs)
         calcIndices!(glbs)
 
-        #printGlbs(glbs, string("s=",s-1.5))
-
         for l in 1:glbs.Nlevels
           samplePoint!(glbs.newPoints, glbs, frm)
           levelDown!(glbs);
           sampleIndices!(glbs.newPoints, cmoi, glbs, frm);
 
-          #printGlbs(glbs, string("s=",s-1.5+.1*l))
-
-          for i in 1:Niter         #   perform Gibbs sampling
+          for i in 1:Niter
             for j in 1:glbs.Ndens
               @fastmath @inbounds sampleIndex(j, cmo, glbs);
             end
           end
         end
 
-        for j in 1:glbs.Ndens                       #/ save and
+        for j in 1:glbs.Ndens
           glbs.newIndices[(s-1)*glbs.Ndens+j] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;  # return particle label
         end
-
-        samplePoint!(glbs.newPoints, glbs, frm);                            # draw a sample from that label
-               #glbs.newIndices = glbs.newIndices[glbs.Ndens:end]  # move pointers to next sample
-               #glbs.newPoints  = glbs.newPoints[glbs.Ndim:end]
-        #printGlbs(glbs, string("s=",s-1))
+        samplePoint!(glbs.newPoints, glbs, frm);
     end
-    ##@show glbs.ruptr, size(glbs.randU), size(glbs.randU,1)+glbs.ruptr
-    # deref the glbs data and let gc() remove it later, or force with gc()
     glbs = 0
-    #@show @elapsed gc()
-    #error("gibbs1 -- not implemented yet")
     nothing
 end
-
-# function remoteProdAppxMSGibbsS(npd0::BallTreeDensity,
-#                           npds::Array{BallTreeDensity,1}, anFcns, anParams,
-#                           Niter::Int=5)
-#
-#   len = length(npds)
-#   arr = Array{Array{Float64,2},1}(len)
-#
-#   d = npds[1].bt.dims
-#   N = npds[1].bt.num_points
-#
-#
-#   for i in 1:len
-#     arr[i] = reshape(npds[i].bt.centers[(N*d+1):end],d,N)
-#   end
-#
-#   pts, bw = remoteProd(arr)
-#
-#   return pts, -1
-# end
 
 function prodAppxMSGibbsS(npd0::BallTreeDensity,
                           npds::Array{BallTreeDensity,1}, anFcns, anParams,
                           Niter::Int=5)
     # See  Ihler,Sudderth,Freeman,&Willsky, "Efficient multiscale sampling from products
     #         of Gaussian mixtures", in Proc. Neural Information Processing Systems 2003
-
     Ndens = length(npds)              # of densities
     Ndim  = npds[1].bt.dims           # of dimensions
     Np    = Npts(npd0)                # of points to sample
 
     # skipping analytic functions for now TODO ??
-
     UseAn = false
     #??pointsM = zeros(Ndim, Np)
     points = zeros(Ndim*Np)
     #??plhs[1] = mxCreateNumericMatrix(Ndens, Np, mxUINT32_CLASS, mxREAL);
     indices=ones(Int,Ndens*Np)
-    maxNp = Np                        # largest # of particles we deal with
+    maxNp = Np
     for tree in npds
         if (maxNp < Npts(tree))
             maxNp = Npts(tree)
@@ -441,9 +357,7 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
         randN = vec(readdlm("randN.csv"))
     end
 
-    #@show size(randU), size(randN)
     gibbs1(Ndens, npds, Np, Niter, points, indices, randU, randN);
-
     return reshape(points, Ndim, Np), reshape(indices, Ndens, Np)
 end
 
