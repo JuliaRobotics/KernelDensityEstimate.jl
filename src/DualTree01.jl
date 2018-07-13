@@ -1,43 +1,36 @@
 
+function string(d::KernelDensityEstimate.BallTreeDensity)
+  # TODO only supports single bandwidth per dimension at this point
+  pts = getPoints(d)
+  return "KDE:$(size(pts,2)):$(getBW(d)[:,1]):$(pts)"
+end
 
-# function OLDminDistGauss(bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)
-#   #@show "minDistGauss",  dRoot, aRoot
-#   atCenter = center(atTree, aRoot)
-#   densCenter = center(bd, dRoot)
-#   bw = bwMax(bd, dRoot)
-#   result = 0.0
-#   tmp = 0.0
-#   for (k=1:Ndim(atTree))
-#     tmp = abs( atCenter[k] - densCenter[k] )
-#     tmp -= (rangeB(atTree, aRoot))[k] + (rangeB(bd, dRoot))[k];
-#     tmp = (tmp > 0) ? tmp : 0.0
-#     if ( bwUniform(bd) )
-#       result -= (tmp*tmp)/bw[k]
-#     else
-#       result -= (tmp*tmp)/bw[k] + log(bwMin(bd, dRoot)[k]) end
-#   end
-#   result = exp(result/2.0)
-#   return result
-# end
-#
-# function OLDmaxDistGauss(bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)
-#   atCenter = center(atTree, aRoot)
-#   densCenter = center(bd, dRoot)
-#   bw = bwMin(bd, dRoot)
-#   tmp = 0.0
-#   result = 0.0
-#   for k in 1:Ndim(atTree.bt)
-#     tmp = abs( atCenter[k] - densCenter[k] )
-#     tmp+= rangeB(atTree, aRoot)[k] + rangeB(bd, dRoot)[k]
-#     if ( bwUniform(bd) )
-#         result -= (tmp*tmp)/bw[k]
-#     else
-#         result -= (tmp*tmp)/bw[k] + log(bwMax(bd, Root)[k])
-#     end
-#   end
-#   result = exp(result/2.0);
-#   return result
-# end
+function parsestringvector(str::AS; dlim=',') where {AS <: AbstractString}
+  sstr = split(split(strip(str),'[')[end],']')[1]
+  ssstr = strip.(split(sstr,dlim))
+  parse.(Float64, ssstr)
+end
+
+function convert(::Type{BallTreeDensity}, str::AS) where {AS <: AbstractString}
+  @assert ismatch(r"KDE:", str)
+  sstr = strip.(split(str, ':'))
+  N = parse(Int, sstr[2])
+  bw = parsestringvector(sstr[3])
+  dims = length(bw)
+  ptrowstrs = split(sstr[4],';')
+  @assert dims == length(ptrowstrs)
+  pts = zeros(dims, N)
+  for i in 1:dims
+    pts[i,:] = parsestringvector(ptrowstrs[i], dlim=' ')
+  end
+  kde!(pts, bw)
+end
+# psubs = split(psubs, '[')[end]
+# psubsub = split(psubs, ']')[1]
+# pw = split(psubsub, ',')
+
+
+
 
 function minDistGauss!(restmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)
   #@show "minDistGauss",  dRoot, aRoot
