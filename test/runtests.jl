@@ -240,5 +240,6 @@ ps = string(p)
 pp = convert(BallTreeDensity, ps)
 
 @test norm(getPoints(pp)-getPoints(p)) < 1e-5
+@test norm(getBW(pp)-getBW(p)) < 1e-5
 
 end
