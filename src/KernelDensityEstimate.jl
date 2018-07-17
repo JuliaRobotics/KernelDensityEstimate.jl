@@ -6,9 +6,14 @@ module KernelDensityEstimate
 using Distributions, Compat
 
 import Distributions: sample
-import Base: promote_rule, *, rand
+import Base: promote_rule, *, rand, string, convert
 
 export
+    # override Base
+    string,
+    convert,
+
+    # new stuff
     MixtureDensity,
     kde!,
     getPoints,

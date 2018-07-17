@@ -1,43 +1,6 @@
 using KernelDensityEstimate
 using Base.Test
-# include("BallTree01.jl")
-# include("BallTreeDensity01.jl")
-# include("KDE01.jl")
-# include("DualTree01.jl")
 
-# type BallTree
-#   dims::Int                     # dimension of data
-#   num_points::Int               # of points
-#   centers::Array{Float64,1}       # ball centers, dims numbers per ball
-#   ranges::Array{Float64,1}        # bounding box ranges, dims per ball, dist from center to one side
-#   weights::Array{Float64,1}       # total weight in each ball
-#
-#   left_child::Array{Int,1}
-#   right_child::Array{Int,1}     # left, right children; no parent indices
-#   lowest_leaf::Array{Int,1}
-#   highest_leaf::Array{Int,1}    # lower & upper leaf indices for each ball
-#   permutation::Array{Int,1}     # point's position in the original data
-#
-#   next::Int                     # internal var for placing the non-leaf nodes
-#
-#   swapHandle::Function
-#   calcStatsHandle::Function
-#   data
-# end
-# type BallTreeDensity
-#   bt::BallTree
-#
-#   KernelType
-#   multibandwidth::Int               # flag: is bandwidth uniform?
-#
-#   means::Array{Float64,1}                  # Weighted mean of points from this level down
-#   bandwidth::Array{Float64,1}              # Variance or other multiscale bandwidth
-#   bandwidthMin::Array{Float64,1}
-#   bandwidthMax::Array{Float64,1}           # Bounds on BW in non-uniform case
-#
-#   calcStatsHandle::Function
-#   swapHandle::Function
-# end
 
 # parse the output from matlab process
 function parseMatPrintKDE(filename::String)
@@ -267,3 +230,16 @@ end
 @test integralAppxUnitTests()
 
 @test testRand()
+
+
+
+@testset "test string and back conversion" begin
+
+p = kde!(randn(2,3))
+ps = string(p)
+pp = convert(BallTreeDensity, ps)
+
+@test norm(getPoints(pp)-getPoints(p)) < 1e-5
+@test norm(getBW(pp)-getBW(p)) < 1e-5
+
+end
