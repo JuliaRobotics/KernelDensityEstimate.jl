@@ -354,6 +354,7 @@ function evaluateDualTree(bd::BallTreeDensity, pos::Array{Float64,2}, lvFlag::Bo
 end
 # should make this be the Union again TODO ??
 function evaluateDualTree(bd::BallTreeDensity, pos::AbstractArray{Float64,1}, lvFlag::Bool=false, errTol::Float64=1e-3)
+    warn("evaluateDualTree vector evaluation API is changing for single point evaluation across multiple dimensions rather than assuming multiple points on a univariate kde.")
     pos2 = zeros(1,length(pos))
     pos2[1,:] = pos[:]
     return evaluateDualTree(bd, pos2, lvFlag, errTol)
@@ -368,6 +369,13 @@ function makeDualTree(bd::BallTreeDensity, errTol::Float64)
     return pRes
 end
 
+function (bd::BallTreeDensity)(pos::Array{Float64,2}, lvFlag::Bool=false, errTol::Float64=1e-3)
+  evaluateDualTree(bd, pos, lvFlag, errTol)
+end
+
+function (bd::BallTreeDensity)(pos::Array{Float64,1}, lvFlag::Bool=false, errTol::Float64=1e-3)
+  evaluateDualTree(bd, reshape(pos,:,1), lvFlag, errTol)
+end
 
 function evaluateDualTree(bd::BallTreeDensity, pos::BallTreeDensity, lvFlag::Bool=false, errTol::Float64=1e-3)
     if (bd.bt.dims != pos.bt.dims) error("bd and pos must have the same dimension") end
