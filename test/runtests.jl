@@ -205,9 +205,9 @@ function integralAppxUnitTests()
   @show a = intgAppxGaussianOffs(offs=1.0,dim=1,N=1000)
   @show testflag = testflag && 0.1 < a < 0.3
   @show a = intgAppxGaussianOffs(offs=-2.0,dim=1,N=1000)
-  @show testflag = testflag && 0.01 < a < 0.15
+  @show testflag = testflag && 0.01 < a < 0.17
   @show a = intgAppxGaussianOffs(offs=0.0,dim=2)
-  @show testflag = testflag && 0.05 < a < 0.12
+  @show testflag = testflag && 0.05 < a < 0.15
 
   return testflag
 end
