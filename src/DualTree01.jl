@@ -603,7 +603,8 @@ function getKDEMax(p::BallTreeDensity;N=200)
     mm = marginal(p,[i])
     rangeV = getKDERange(mm)
     X = linspace(rangeV[1],rangeV[2],N)
-    yV = evaluateDualTree(mm,X)
+    # yV = evaluateDualTree(mm,X)
+    yV = mm(reshape(collect(X), 1, N)) # TODO should allow AbstractArray
     m[i] = X[findfirst(yV,maximum(yV))]
   end
   return m
