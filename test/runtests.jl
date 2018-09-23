@@ -172,7 +172,7 @@ function testProds(;D=3,M=6,N=100,n=100, dev=1.0, MCMC=5)
   T1 = norm(Statistics.mean(pGM,dims=2)) < 1.0*prodDev
   T2 = true
   for i in 1:D
-    tv = Base.std(pGM[i,:])
+    tv = Statistics.std(pGM[i,:])
     lv = (0.66*prodDev < tv < 1.33*prodDev)
     T2 = T2 && lv
   end

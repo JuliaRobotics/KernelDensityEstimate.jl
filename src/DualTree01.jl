@@ -354,7 +354,7 @@ function evaluateDualTree(bd::BallTreeDensity, pos::Array{Float64,2}, lvFlag::Bo
 end
 # should make this be the Union again TODO ??
 function evaluateDualTree(bd::BallTreeDensity, pos::AbstractArray{Float64,1}, lvFlag::Bool=false, errTol::Float64=1e-3)
-    warn("evaluateDualTree vector evaluation API is changing for single point evaluation across multiple dimensions rather than assuming multiple points on a univariate kde.")
+    @warn "evaluateDualTree vector evaluation API is changing for single point evaluation across multiple dimensions rather than assuming multiple points on a univariate kde."
     pos2 = zeros(1,length(pos))
     pos2[1,:] = pos[:]
     return evaluateDualTree(bd, pos2, lvFlag, errTol)
@@ -595,7 +595,7 @@ end
 
 function getKDERangeLinspace(bd::BallTreeDensity; extend::Float64=0.1, N::Int=201)
   v = getKDERange(bd,extend=extend)
-  return linspace(v[1],v[2],N)
+  return range(v[1], stop=v[2], length=N) #linspace(v[1],v[2],N)
 end
 
 function getKDEMax(p::BallTreeDensity;N=200)
