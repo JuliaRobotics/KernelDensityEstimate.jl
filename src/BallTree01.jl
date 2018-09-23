@@ -7,7 +7,7 @@ FIELD_NAMES = ["D", "N", "centers", "ranges", "weights",
             "lower", "upper", "leftch", "rightch", "perm"]
 nfields = 10;
 
-type BallTree
+mutable struct BallTree
   dims::Int                     # dimension of data
   num_points::Int               # of points
   centers::Array{Float64,1}       # ball centers, dims numbers per ball

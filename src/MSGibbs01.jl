@@ -1,4 +1,4 @@
-type GbGlb
+mutable struct GbGlb
     # REMEMBER -- all multi-dim arrays are column-indexing!  [i,j] => [j*N+i]
     particles::Array{Float64,1} # [Ndim x Ndens]      // means of selected particles
     variance::Array{Float64,1}  # [Ndim x Ndens]      //   variance of selected particles
@@ -37,7 +37,7 @@ function makeEmptyGbGlb()
                 zeros(0),
                 zeros(0),
                 ones(Int,0),
-                Vector{BallTreeDensity}(1),
+                Vector{BallTreeDensity}(undef, 1),
                 ones(Int,1,0),
                 ones(Int,1,0),
                 zeros(Int,0),
@@ -45,7 +45,7 @@ function makeEmptyGbGlb()
 end
 
 
-type MSCompOpt
+mutable struct MSCompOpt
   pT::Float64
   tmpC::Float64
   tmpM::Float64
@@ -149,7 +149,7 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
       for i in 1:glb.Ndim
         tmp = X[i+frm] - mean(glb.trees[j], zz, i)#[i]
         glb.p[z] += (tmp*tmp) / bw(glb.trees[j], zz, i)#[i]
-        glb.p[z] += Base.Math.JuliaLibm.log(bw(glb.trees[j], zz, i))
+        glb.p[z] += Base.log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
       end
       glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j], zz)
       cmoi.pT += glb.p[z]

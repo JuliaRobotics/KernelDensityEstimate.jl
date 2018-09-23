@@ -2,15 +2,15 @@
 #@enum(KernelType,"Gaussian", "Epanetchnikov", "Laplacian")
 #@enum(Gradient,WRTMean, WRTVariance, WRTWeight)
 
-type GaussianKer
+struct GaussianKer
     val::Float64
 end
 
-DirectSize = 100;        # if N*M is less than this, just compute.
+global DirectSize = 100;        # if N*M is less than this, just compute.
 
 @compat abstract type MixtureDensity end
 
-type BallTreeDensity <: MixtureDensity
+mutable struct BallTreeDensity <: MixtureDensity
   bt::BallTree
 
   KernelType
@@ -199,8 +199,8 @@ function makeBallTreeDensity(_pointsMatrix::Array{Float64,2}, _weightsMatrix::Ar
   if (size(_bwMatrix,2) == 1)
     multibw = 0
     bandwidth = zeros(Nd*2*Np)
-    # @show Nd, Np, size(_bwMatrix), size(repmat(_bwMatrix,Np))
-    bandwidth[(Np*Nd+1):end] = repmat(_bwMatrix,Np)
+    # @show Nd, Np, size(_bwMatrix), size(repeat(_bwMatrix,Np))
+    bandwidth[(Np*Nd+1):end] = repeat(_bwMatrix,Np)
     bandwidthMin = bandwidth[(Np*Nd+1):end]
     bandwidthMax = bandwidth[(Np*Nd+1):end]
   else

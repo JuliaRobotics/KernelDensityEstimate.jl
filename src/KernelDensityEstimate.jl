@@ -2,7 +2,7 @@ __precompile__(true)
 
 module KernelDensityEstimate
 
-# using Gadfly, Colors, Cairo, Fontconfig, Compose
+using LinearAlgebra, Statistics
 using Distributions, Compat
 
 import Distributions: sample

@@ -1,7 +1,7 @@
 function kde!(points::A, ks::Array{Float64,1}, weights::Array{Float64,1}) where {A <: AbstractArray{Float64,2}}
   Nd, Np = size(points)
   if (length(ks) == 1)
-    ks = repmat(ks,Nd)
+    ks = repeat(ks,Nd)
   end
 
   ks = ks.^2 # Guassian only at this point, taking covariance
