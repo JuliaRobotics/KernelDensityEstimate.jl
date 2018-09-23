@@ -12,7 +12,7 @@ function parsestringvector(str::AS; dlim=',') where {AS <: AbstractString}
 end
 
 function convert(::Type{BallTreeDensity}, str::AS) where {AS <: AbstractString}
-  @assert ismatch(r"KDE:", str)
+  @assert occursin(r"KDE:", str) # ismatch
   sstr = strip.(split(str, ':'))
   N = parse(Int, sstr[2])
   bw = parsestringvector(sstr[3])
@@ -105,7 +105,7 @@ function minDistKer!(rettmp, bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDe
 end
 
 # need to declare these here, for kernel
-type pArrHdls
+mutable struct pArrHdls
     pMin::Array{Float64,1}
     pMax::Array{Float64,1}
     pAdd::Array{Float64,2}
@@ -154,7 +154,7 @@ function evalDirect(bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aR
   firstFlag = true;
   minVal=2e22;
   maxVal=0.0;
-  restmp = Array{Float64,1}(2)
+  restmp = Array{Float64,1}(undef, 2)
   d = 0.0
   for j in leafFirst(atTree.bt, aRoot):leafLast(atTree.bt, aRoot)
     for i in leafFirst(bd.bt,dRoot):leafLast(bd.bt, dRoot)
@@ -189,7 +189,7 @@ function evaluate(bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoo
 
   #result = 0.0
   #tmp = 0.0
-  restmp = Array{Float64,1}(2)
+  restmp = Array{Float64,1}(undef, 2)
 
   # find the minimum and maximum effect of these two balls on each other
   minDistKer!(restmp, bd, dRoot, atTree, aRoot)
@@ -392,14 +392,14 @@ function evalAvgLogL(bd1::BallTreeDensity, bd2::BallTreeDensity)
   L = evaluateDualTree(bd1, bd2, false) # true
   #printBallTree(bd1)
   W = getWeights(bd2)
-  ind = find(L.==0.0)
+  ind = findall(L.==0.0)
   ll = nothing
-  if sum(find(W[ind])) > 0
+  if sum(findall(W[ind])) > 0
     # println("evalAvgLogL -- in if")
     ll=-Inf
   else
     # println("evalAvgLogL -- in else")
-    L[ind] = 1
+    L[ind] .= 1.0
     ll = (log.(L)')*W
   end
   return ll
@@ -417,7 +417,7 @@ function kld(p1::BallTreeDensity, p2::BallTreeDensity; method::Symbol=:direct)
     D = Ndim(p1)
     N = Npts(p1)
     ptsE = getPoints(p1)
-    ptsE = repmat(ptsE,1,2*D+1)
+    ptsE = repeat(ptsE,1,2*D+1)
     bw = getBW(p1);
     for i in 1:D
       ptsE[i,(i-1)*N+(1:N)] = ptsE[i,(i-1)*N+(1:N)] + bw[i,:];
@@ -514,7 +514,7 @@ function neighborMinMax(bd::BallTreeDensity)
     tmp = (2*bd.bt.ranges).^2
     rang = reshape(bd.bt.ranges[1:(floor(Int,end/2.0))],bd.bt.dims,bd.bt.num_points)
     maxm = sqrt(sum( (2.0*rang[:,1]).^2 ))
-    ssumt = sqrt.(sum( (2.0*rang[:,1:(bd.bt.num_points-1)]).^2 ,1))
+    ssumt = sqrt.(sum( (2.0*rang[:,1:(bd.bt.num_points-1)]).^2 , dims=1))
     minm = minimum(ssumt)
     minm = max(minm, 1e-6)
     return minm, maxm
@@ -549,6 +549,7 @@ function kde!(points::A, autoselect::String="lcv") where {A <: AbstractArray{Flo
 
   return p
 end
+
 
 #function kde!(points::Array{Float64,2}, autoselect::String="lcv")
 #  p = kde!(points, [retrieveTCP( points)])
@@ -611,7 +612,7 @@ function getKDEMax(p::BallTreeDensity;N=200)
 end
 
 function getKDEMean(p::BallTreeDensity)
-  return vec(Base.mean(getPoints(p),2))
+  return vec(Statistics.mean(getPoints(p),2))
 end
 function getKDEfit(p::BallTreeDensity; distribution=MvNormal)
   fit(distribution, getPoints(p))
@@ -622,7 +623,7 @@ function intersIntgAppxIS(p::BallTreeDensity, q::BallTreeDensity;N=201)
   ndims = Ndim(p)
   xx = zeros(ndims, N)
   dx = zeros(ndims)
-  LD = Array{LinSpace,1}(ndims)
+  LD = Array{LinSpace,1}(undef, ndims)
   for d in 1:ndims
     LD[d] = getKDERangeLinspace(marginal(p,[d]), N=N, extend=0.3)
     dx[d] = LD[d][2]-LD[d][1]

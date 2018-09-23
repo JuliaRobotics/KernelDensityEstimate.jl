@@ -1,6 +1,6 @@
 using KernelDensityEstimate
-using Base.Test
-
+using Test
+using LinearAlgebra, Statistics, DelimitedFiles
 
 # parse the output from matlab process
 function parseMatPrintKDE(filename::String)
@@ -80,29 +80,37 @@ function testSubtract(b1::BallTreeDensity, b2::BallTreeDensity, tol=1e-10)
     true
 end
 
+function testdatapath(ss::String)
+  # joinpath(Pkg.dir("KernelDensityEstimate"),"test","testdata",ss)
+  joinpath(dirname(pathof(KernelDensityEstimate)),"..","test","testdata",ss)
+end
 
 function UnitTest1D01()
-  print("Running UnitTest1D01...")
-  p = kde!([.1,.45,.55,3.8],[0.08])
 
-  d = parseMatPrintKDE("testdata/test1DResult.txt")
-  refbtd = constructBTD(d)
+print("Running UnitTest1D01...")
+p = kde!([.1,.45,.55,3.8],[0.08])
 
-  # printBallTree(p)
-  testSubtract(refbtd, p, 1e-5)
+d = parseMatPrintKDE(testdatapath("test1DResult.txt"))
+refbtd = constructBTD(d)
+
+# printBallTree(p)
+testSubtract(refbtd, p, 1e-5)
+
 end
 
 
 function UnitTest1Dlcv01()
-  print("Running UnitTest1Dlcv01...")
-  x = vec(readdlm("testdata/test1Dlcv100.txt")')
-  p = kde!(x,"lcv")
 
-  d = parseMatPrintKDE("testdata/test1Dlcv100Result.txt")
+  print("Running UnitTest1Dlcv01...")
+  x = vec(readdlm(testdatapath("test1Dlcv100.txt"))')
+  p = kde!(collect(x),"lcv")
+
+  d = parseMatPrintKDE(testdatapath("test1Dlcv100Result.txt"))
   refbtd = constructBTD(d)
 
   # printBallTree(p)
   testSubtract(refbtd, p, 1e-4)
+
 end
 
 function UnitTest2D01()
@@ -111,7 +119,7 @@ function UnitTest2D01()
          [0.0312, 1.0094, 2.0204]']
   p = kde!(pts,[0.1])
 
-  d = parseMatPrintKDE("testdata/test2DResult.txt")
+  d = parseMatPrintKDE(testdatapath("test2DResult.txt"))
   refbtd = constructBTD(d)
 
   # printBallTree(p)
@@ -120,10 +128,10 @@ end
 
 function UnitTest2Dlcv01()
   print("Running UnitTest2Dlcv01...")
-  x = readdlm("testdata/test2Dlcv100.txt")'
-  p = kde!(x,"lcv")
+  x = readdlm(testdatapath("test2Dlcv100.txt"))'
+  p = kde!(collect(x),"lcv")
 
-  d = parseMatPrintKDE("testdata/test2Dlcv100Result.txt")
+  d = parseMatPrintKDE(testdatapath("test2Dlcv100Result.txt"))
   refbtd = constructBTD(d)
 
   # printBallTree(p)
@@ -135,7 +143,7 @@ function UnitTest2Dvar01()
   pts = [[0.5172, 7.169, 4.049]';
          [0.0312, 10.0094, -2.0204]']
   p=kde!(pts,[0.1; 1.0]);
-  d = parseMatPrintKDE("testdata/test2DvarResult.txt")
+  d = parseMatPrintKDE(testdatapath("test2DvarResult.txt"))
   refbtd = constructBTD(d)
 
   # printBallTree(p)
@@ -144,10 +152,10 @@ end
 
 function UnitTest2Dvarlcv01()
   print("Running UnitTest2Dvarlcv01...")
-  x = readdlm("testdata/test2Dvarlcv100.txt")'
+  x = readdlm(testdatapath("test2Dvarlcv100.txt"))'
   p = kde!(x,"lcv")
 
-  d = parseMatPrintKDE("testdata/test2Dvarlcv100Result.txt")
+  d = parseMatPrintKDE(testdatapath("test2Dvarlcv100Result.txt"))
   refbtd = constructBTD(d)
 
   # printBallTree(p)
@@ -161,7 +169,7 @@ function testProds(;D=3,M=6,N=100,n=100, dev=1.0, MCMC=5)
   pGM, = prodAppxMSGibbsS(dummy, P, Union{}, Union{}, MCMC);
   sum(abs, pGM) < 1e-14 ? error("testProds -- prodAppxMSGibbsS, nothing in pGM, len $(length(P))") : nothing
   prodDev = sqrt(dev^(2*M)/(M*(dev^2)))
-  T1 = norm(Base.mean(pGM,2)) < 1.0*prodDev
+  T1 = norm(Statistics.mean(pGM,dims=2)) < 1.0*prodDev
   T2 = true
   for i in 1:D
     tv = Base.std(pGM[i,:])
@@ -193,7 +201,7 @@ end
 function intgAppxGaussianOffs(;offs::Float64=0.0, N::Int=201, dim::Int=1)
   p = kde!(randn(dim,100));
   pts = randn(dim,150)
-  pts[1,:] += offs
+  pts[1,:] .+= offs
   q = kde!(pts);
   return intersIntgAppxIS(p,q, N=N)
 end
