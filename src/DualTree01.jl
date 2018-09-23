@@ -623,7 +623,7 @@ function intersIntgAppxIS(p::BallTreeDensity, q::BallTreeDensity;N=201)
   ndims = Ndim(p)
   xx = zeros(ndims, N)
   dx = zeros(ndims)
-  LD = Array{LinSpace,1}(undef, ndims)
+  LD = Array{LinRange,1}(undef, ndims)
   for d in 1:ndims
     LD[d] = getKDERangeLinspace(marginal(p,[d]), N=N, extend=0.3)
     dx[d] = LD[d][2]-LD[d][1]

@@ -247,7 +247,7 @@ p = kde!(randn(2,3))
 ps = string(p)
 pp = convert(BallTreeDensity, ps)
 
-@test norm(getPoints(pp)-getPoints(p)) < 1e-5
-@test norm(getBW(pp)-getBW(p)) < 1e-5
+@test norm(getPoints(pp)-getPoints(p)) < 1e-4
+@test norm(getBW(pp)-getBW(p)) < 1e-4
 
 end
