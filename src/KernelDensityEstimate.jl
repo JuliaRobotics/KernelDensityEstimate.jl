@@ -3,7 +3,7 @@ __precompile__(true)
 module KernelDensityEstimate
 
 using LinearAlgebra, Statistics
-using Distributions, Compat
+using Distributions
 
 import Distributions: sample
 import Base: promote_rule, *, rand, string, convert
@@ -46,9 +46,7 @@ export
     VectorRange
 
 
-# useful aliases
-@compat VoidUnion{T}   = Union{Void, T}
-@compat VectorRange{T} = Union{Vector{T},UnitRange{T}}
+VectorRange{T} = Union{Vector{T},UnitRange{T}}
 
 include("BallTree01.jl")
 include("BallTreeDensity01.jl")
