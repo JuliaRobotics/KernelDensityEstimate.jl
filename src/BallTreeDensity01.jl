@@ -8,7 +8,7 @@ end
 
 global DirectSize = 100;        # if N*M is less than this, just compute.
 
-@compat abstract type MixtureDensity end
+abstract type MixtureDensity end
 
 mutable struct BallTreeDensity <: MixtureDensity
   bt::BallTree
