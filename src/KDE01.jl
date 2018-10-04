@@ -39,9 +39,6 @@ function getPoints(bd::BallTreeDensity)
     return pts
 end
 
-function getType(bd::BallTreeDensity)
-    return 0
-end
 
 #s = zeros(dens.D,dens.N);
 #s(:,double(dens.perm(dens.N + (1:dens.N)))+1) = dens.bandwidth(:,dens.N + (1:dens.N));
@@ -80,7 +77,7 @@ function marginal(bd::BallTreeDensity, ind::Array{Int,1})
   p = kde!(pts[ind,:],sig[ind], wts)
 end
 
-function randKernel(N::Int, M::Int, t::Int)
+function randKernel(N::Int, M::Int, ::Type{KernelDensityEstimate.GaussianKer}) #t::Int)
   return randn(N,M)
 end
 
