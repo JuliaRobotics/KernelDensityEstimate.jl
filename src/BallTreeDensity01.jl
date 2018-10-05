@@ -311,10 +311,10 @@ end
 
 function printBallTree(bd::BallTreeDensity, rnd=15)
   printBallTree(bd.bt);
-  @show round(bd.means,rnd);
-  @show round(bd.bandwidth,rnd);
-  @show round(bd.bandwidthMin,rnd);
-  @show round(bd.bandwidthMax,rnd);
+  @show round.(bd.means,digits=rnd);
+  @show round.(bd.bandwidth,digits=rnd);
+  @show round.(bd.bandwidthMin,digits=rnd);
+  @show round.(bd.bandwidthMax,digits=rnd);
 
   nothing
 end

@@ -60,5 +60,4 @@ A Julia package for Kernel Density Estimation and approximations of their produc
 
 """
 
-
 end

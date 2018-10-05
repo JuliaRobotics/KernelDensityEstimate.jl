@@ -394,7 +394,7 @@ function evalAvgLogL(bd1::BallTreeDensity, bd2::BallTreeDensity)
   W = getWeights(bd2)
   ind = findall(L.==0.0)
   ll = nothing
-  if sum(findall(W[ind])) > 0
+  if sum(findall(x->x!=0, W[ind])) > 0
     # println("evalAvgLogL -- in if")
     ll=-Inf
   else
@@ -595,7 +595,7 @@ end
 
 function getKDERangeLinspace(bd::BallTreeDensity; extend::Float64=0.1, N::Int=201)
   v = getKDERange(bd,extend=extend)
-  return range(v[1], stop=v[2], length=N) #linspace(v[1],v[2],N)
+  return range(v[1], stop=v[2], length=N)
 end
 
 function getKDEMax(p::BallTreeDensity;N=200)
@@ -603,16 +603,16 @@ function getKDEMax(p::BallTreeDensity;N=200)
   for i in 1:p.bt.dims
     mm = marginal(p,[i])
     rangeV = getKDERange(mm)
-    X = linspace(rangeV[1],rangeV[2],N)
+    X = range(rangeV[1],stop=rangeV[2],length=N)
     # yV = evaluateDualTree(mm,X)
     yV = mm(reshape(collect(X), 1, N)) # TODO should allow AbstractArray
-    m[i] = X[findfirst(yV,maximum(yV))]
+    m[i] = X[something(findfirst(isequal(maximum(yV)), yV), 0)] # findfirst(yV,maximum(yV))
   end
   return m
 end
 
 function getKDEMean(p::BallTreeDensity)
-  return vec(Statistics.mean(getPoints(p),2))
+  return vec(Statistics.mean(getPoints(p),dims=2))
 end
 function getKDEfit(p::BallTreeDensity; distribution=MvNormal)
   fit(distribution, getPoints(p))

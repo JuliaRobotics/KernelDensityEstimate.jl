@@ -359,9 +359,9 @@ function makeBallTree(_pointsMatrix::Array{Float64,2}, _weights::Array{Float64,1
 end
 
 function printBallTree(bt::BallTree)
-    @show round(bt.centers,15);
-    @show round(bt.weights,15);
-    @show round(bt.ranges,15);
+    @show round.(bt.centers,dims=15);
+    @show round.(bt.weights,dims=15);
+    @show round.(bt.ranges,dims=15);
     @show bt.left_child;
     @show bt.right_child;
     @show bt.highest_leaf;
