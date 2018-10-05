@@ -394,7 +394,7 @@ function evalAvgLogL(bd1::BallTreeDensity, bd2::BallTreeDensity)
   W = getWeights(bd2)
   ind = findall(L.==0.0)
   ll = nothing
-  if sum(findall(W[ind])) > 0
+  if sum(findall(x->x!=0, W[ind])) > 0
     # println("evalAvgLogL -- in if")
     ll=-Inf
   else
