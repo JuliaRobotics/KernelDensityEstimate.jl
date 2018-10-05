@@ -606,13 +606,13 @@ function getKDEMax(p::BallTreeDensity;N=200)
     X = range(rangeV[1],stop=rangeV[2],length=N)
     # yV = evaluateDualTree(mm,X)
     yV = mm(reshape(collect(X), 1, N)) # TODO should allow AbstractArray
-    m[i] = X[something(findfirst(isequal(maximum(yV)), yV), 0)] # findfirst(yV,maximum(yV)) 
+    m[i] = X[something(findfirst(isequal(maximum(yV)), yV), 0)] # findfirst(yV,maximum(yV))
   end
   return m
 end
 
 function getKDEMean(p::BallTreeDensity)
-  return vec(Statistics.mean(getPoints(p),2))
+  return vec(Statistics.mean(getPoints(p),dims=2))
 end
 function getKDEfit(p::BallTreeDensity; distribution=MvNormal)
   fit(distribution, getPoints(p))
