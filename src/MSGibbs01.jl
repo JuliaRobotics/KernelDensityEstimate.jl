@@ -369,3 +369,15 @@ function *(p1::BallTreeDensity, p2::BallTreeDensity)
   pGM, = prodAppxMSGibbsS(dummy, [p1;p2], Union{}, Union{}, 5)
   return kde!(pGM)
 end
+
+
+function *(pp::Vector{BallTreeDensity})
+  numpts = round(Int, Base.mean(Npts.(pp)))
+  d = Ndim(pp[1])
+  for p in pp
+    d != Ndim(p) ? error("kdes must have same dimension") : nothing
+  end
+  dummy = kde!(rand(d,numpts),[1.0]);
+  pGM, = prodAppxMSGibbsS(dummy, pp, Union{}, Union{}, 5)
+  return kde!(pGM)
+end
