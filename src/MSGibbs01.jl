@@ -252,14 +252,14 @@ function printGlbs(g::GbGlb, tag=Union{})
     end
     println("Ndim=$(g.Ndim), Ndens=$(g.Ndens), Nlevels=$(g.Nlevels), dNp=$(g.dNp), dNpts=$(g.dNpts)")
     @show g.ind
-    @show round(g.particles,2)
-    @show round(g.variance,2)
-    @show round(g.p,2)
-    @show round(g.Malmost,2)
-    @show round(g.Calmost,2)
+    @show round.(g.particles, digits=2)
+    @show round.(g.variance, digits=2)
+    @show round.(g.p, digits=2)
+    @show round.(g.Malmost, digits=2)
+    @show round.(g.Calmost, digits=2)
     @show g.levelList
     @show g.levelListNew
-    @show round(g.newPoints,4)
+    @show round.(g.newPoints, digits=4)
     @show g.newIndices
 end
 
