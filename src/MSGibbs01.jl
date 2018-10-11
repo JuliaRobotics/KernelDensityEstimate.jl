@@ -102,7 +102,7 @@ function samplePoint!(X::Array{Float64,1}, glb::GbGlb, frm::Int)
   #counter = 1
   for j in 1:glb.Ndim
     mn=0.0; vn=0.0;
-    for z in 1:glb.Ndens                             # Compute mean and variances of
+    @inbounds @fastmath @simd for z in 1:glb.Ndens                             # Compute mean and variances of
       vn += 1.0/glb.variance[j+glb.Ndim*(z-1)]       #   product of selected particles
       mn += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
     end
@@ -266,7 +266,8 @@ end
 function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
                 Np::Int, Niter::Int,
                 pts::Array{Float64,1}, ind::Array{Int,1},
-                randU::Array{Float64,1}, randN::Array{Float64,1})
+                randU::Array{Float64,1}, randN::Array{Float64,1};
+                diffop::Function=-)
 
     glbs = makeEmptyGbGlb()
     glbs.Ndens = Ndens
@@ -309,9 +310,9 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
           levelDown!(glbs);
           sampleIndices!(glbs.newPoints, cmoi, glbs, frm);
 
-          for i in 1:Niter
+         @inbounds @fastmath for i in 1:Niter
             for j in 1:glbs.Ndens
-              @fastmath @inbounds sampleIndex(j, cmo, glbs);
+              sampleIndex(j, cmo, glbs);
             end
           end
         end
@@ -325,9 +326,27 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
     nothing
 end
 
+
 function prodAppxMSGibbsS(npd0::BallTreeDensity,
-                          npds::Array{BallTreeDensity,1}, anFcns, anParams,
-                          Niter::Int=5)
+                          npds::Array{BallTreeDensity,1},
+                          anFcns,
+                          anParams,
+                          Niter::Int )
+  @warn "prodApproxMSGibbs has new keyword interface, use (..; Niter::Int=5, diffop::Function=-) instead"
+  prodAppxMSGibbsS(npd0,
+                   npds,
+                   anFcns,
+                   anParams;
+                   Niter=Niter,
+                   diffop=-)
+end
+
+function prodAppxMSGibbsS(npd0::BallTreeDensity,
+                          npds::Array{BallTreeDensity,1},
+                          anFcns,
+                          anParams;
+                          Niter::Int=5,
+                          diffop::Function=-)
     # See  Ihler,Sudderth,Freeman,&Willsky, "Efficient multiscale sampling from products
     #         of Gaussian mixtures", in Proc. Neural Information Processing Systems 2003
     Ndens = length(npds)              # of densities
@@ -357,7 +376,7 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
         randN = vec(readdlm("randN.csv"))
     end
 
-    gibbs1(Ndens, npds, Np, Niter, points, indices, randU, randN);
+    gibbs1(Ndens, npds, Np, Niter, points, indices, randU, randN, diffop=diffop);
     return reshape(points, Ndim, Np), reshape(indices, Ndens, Np)
 end
 
@@ -366,7 +385,7 @@ function *(p1::BallTreeDensity, p2::BallTreeDensity)
   d = Ndim(p1)
   d != Ndim(p2) ? error("kdes must have same dimension") : nothing
   dummy = kde!(rand(d,numpts),[1.0]);
-  pGM, = prodAppxMSGibbsS(dummy, [p1;p2], Union{}, Union{}, 5)
+  pGM, = prodAppxMSGibbsS(dummy, [p1;p2], Union{}, Union{}, Niter=5)
   return kde!(pGM)
 end
 
@@ -378,6 +397,6 @@ function *(pp::Vector{BallTreeDensity})
     d != Ndim(p) ? error("kdes must have same dimension") : nothing
   end
   dummy = kde!(rand(d,numpts),[1.0]);
-  pGM, = prodAppxMSGibbsS(dummy, pp, Union{}, Union{}, 5)
+  pGM, = prodAppxMSGibbsS(dummy, pp, Union{}, Union{}, Niter=5)
   return kde!(pGM)
 end
