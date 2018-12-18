@@ -51,6 +51,72 @@ mutable struct MSCompOpt
   tmpM::Float64
 end
 
+## funcions related to Gaussian product
+
+function calcIndices!(glb::GbGlb)::Nothing
+  @fastmath @inbounds begin
+    for j in 1:glb.Ndens
+      for z in 1:glb.Ndim
+        glb.particles[z+glb.Ndim*(j-1)] = mean(glb.trees[j],glb.ind[j], z);
+        glb.variance[z+glb.Ndim*(j-1)]  = bw(glb.trees[j],glb.ind[j], z);
+      end
+    end
+  end
+  nothing
+end
+
+function getMeanCovDens(glb::GbGlb, j::Int)::Tuple{Float64, Float64}
+  mn=0.0;
+  vn=0.0;
+  # Compute mean and variances (product) of selected particles
+  @inbounds @fastmath @simd for z in 1:glb.Ndens
+    # TODO: change to on-manifold operation
+    vn += 1.0/glb.variance[j+glb.Ndim*(z-1)]
+    mn += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
+  end
+  vn = 1.0/vn;
+  mn *= vn;
+  return mn, vn
+end
+
+function indexMeanCovDens!(glb::GbGlb, j::Int, i::Int)
+  iCalmost = 0.0;
+  iMalmost = 0.0;
+  for k in 1:glb.Ndens
+    # TODO change to on-manifold operation
+    if (k!=j) iCalmost += 1.0/glb.variance[i+glb.Ndim*(k-1)]; end
+    if (k!=j) iMalmost += glb.particles[i+glb.Ndim*(k-1)]/glb.variance[i+glb.Ndim*(k-1)]; end
+  end
+  glb.Calmost[i] = 1.0/iCalmost;
+  glb.Malmost[i] = iMalmost * glb.Calmost[i];
+  nothing
+end
+
+## SLOWEST PIECE OF THE COMPUTATION -- TODO
+# easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations...
+function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb)
+  cmo.tmpC = 0.0
+  cmo.tmpM = 0.0
+
+  zz=glb.levelList[j,1]
+  for z in 1:(glb.dNpts[j])
+    glb.p[z] = 0.0
+    for i in 1:glb.Ndim
+      # TODO convert to on-manifold operations
+      cmo.tmpC = bw(glb.trees[j], zz, i) + glb.Calmost[i]
+      cmo.tmpM = mean(glb.trees[j], zz, i) - glb.Malmost[i]
+      glb.p[z] += abs2(cmo.tmpM)/cmo.tmpC + log(cmo.tmpC) # This is the slowest piece
+    end
+    glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz) # slowest piece
+    z < glb.dNpts[j] ? zz = glb.levelList[j,(z+1)] : nothing
+  end
+
+  nothing
+end
+
+
+## Level and sampling operations
+
 function levelInit!(glb::GbGlb)
   for j in 1:glb.Ndens
     glb.dNpts[j] = 1
@@ -58,7 +124,6 @@ function levelInit!(glb::GbGlb)
   end
 end
 
-# this is a weird function -- not tested at all at this point
 function initIndices!(glb::GbGlb)
   count=1
   for j in 1:glb.Ndens
@@ -87,33 +152,19 @@ function initIndices!(glb::GbGlb)
   end
 end
 
-function calcIndices!(glb::GbGlb)
-  @fastmath @inbounds begin
-    for j in 1:glb.Ndens
-      for z in 1:glb.Ndim
-        glb.particles[z+glb.Ndim*(j-1)] = mean(glb.trees[j],glb.ind[j], z)#[z];
-        glb.variance[z+glb.Ndim*(j-1)]  = bw(glb.trees[j],glb.ind[j], z);
-      end
-    end
-  end
-end
 
-function samplePoint!(X::Array{Float64,1}, glb::GbGlb, frm::Int)
+function samplePoint!(X::Array{Float64,1}, glb::GbGlb, frm::Int)::Nothing
   #counter = 1
   for j in 1:glb.Ndim
-    mn=0.0; vn=0.0;
-    @inbounds @fastmath @simd for z in 1:glb.Ndens                             # Compute mean and variances of
-      vn += 1.0/glb.variance[j+glb.Ndim*(z-1)]       #   product of selected particles
-      mn += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
-    end
-    vn = 1.0/vn; mn *= vn;
+    mn, vn = getMeanCovDens(glb, j)
+    # then draw a sample from it
     glb.rnptr += 1
-    X[j+frm] = mn + sqrt(vn) * glb.randN[glb.rnptr] #counter       # then draw a sample from it
+    X[j+frm] = mn + sqrt(vn) * glb.randN[glb.rnptr] #counter
   end
-  return Union{}
+  return nothing
 end
 
-function levelDown!(glb::GbGlb)
+function levelDown!(glb::GbGlb)::Nothing
   for j in 1:glb.Ndens
     z = 1
     for y in 1:(glb.dNpts[j])
@@ -134,6 +185,7 @@ function levelDown!(glb::GbGlb)
   tmp = glb.levelList                            # make new list the current
   glb.levelList = glb.levelListNew              #   list and recycle the old
   glb.levelListNew=tmp
+  nothing
 end
 
 function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::Int)#pT::Array{Float64,1}
@@ -147,8 +199,8 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
     for z in 1:dNp
       glb.p[z] = 0.0
       for i in 1:glb.Ndim
-        tmp = X[i+frm] - mean(glb.trees[j], zz, i)#[i]
-        glb.p[z] += (tmp*tmp) / bw(glb.trees[j], zz, i)#[i]
+        tmp = X[i+frm] - mean(glb.trees[j], zz, i)
+        glb.p[z] += (tmp*tmp) / bw(glb.trees[j], zz, i)
         glb.p[z] += Base.log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
       end
       glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j], zz)
@@ -182,38 +234,12 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
   calcIndices!(glb);                         # recompute particles, variance
 end
 
-## SLOWEST PIECE OF THE COMPUTATION -- TODO
-# easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations...
-function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb)
-  cmo.tmpC = 0.0
-  cmo.tmpM = 0.0
-
-  zz=glb.levelList[j,1]
-  for z in 1:(glb.dNpts[j])
-    glb.p[z] = 0.0
-    for i in 1:glb.Ndim
-      cmo.tmpC = bw(glb.trees[j], zz, i) + glb.Calmost[i]
-      cmo.tmpM = mean(glb.trees[j], zz, i) - glb.Malmost[i]
-      glb.p[z] += abs2(cmo.tmpM)/cmo.tmpC + log(cmo.tmpC) # This is the slowest piece
-    end
-    glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz) # slowest piece
-    z < glb.dNpts[j] ? zz = glb.levelList[j,(z+1)] : nothing
-  end
-
-  nothing
-end
 
 function sampleIndex(j::Int, cmo::MSCompOpt, glb::GbGlb)
   cmo.pT = 0.0
   # determine product of selected particles from all but jth density
   for i in 1:glb.Ndim
-    iCalmost = 0.0; iMalmost = 0.0;
-    for k in 1:glb.Ndens
-      if (k!=j) iCalmost += 1.0/glb.variance[i+glb.Ndim*(k-1)]; end
-      if (k!=j) iMalmost += glb.particles[i+glb.Ndim*(k-1)]/glb.variance[i+glb.Ndim*(k-1)]; end
-    end
-    glb.Calmost[i] = 1/iCalmost;
-    glb.Malmost[i] = iMalmost * glb.Calmost[i];
+    indexMeanCovDens!(glb, j, i)
   end
 
   makeFasterSampleIndex!(j, cmo, glb)
@@ -239,17 +265,13 @@ function sampleIndex(j::Int, cmo::MSCompOpt, glb::GbGlb)
   glb.ind[j] = zz;
   glb.ruptr += 1
   @simd for i in 1:glb.Ndim
-    glb.particles[i+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], i)#[i]
-    glb.variance[i+glb.Ndim*(j-1)]  = bw(glb.trees[j], glb.ind[j], i)#[i];
+    glb.particles[i+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], i)
+    glb.variance[i+glb.Ndim*(j-1)]  = bw(glb.trees[j], glb.ind[j], i)
   end
 end
 
-function printGlbs(g::GbGlb, tag=Union{})
-    if tag==Union{}
-        println("=========================================================================")
-    else
-        println(string(tag,"================================================================"))
-    end
+function printGlbs(g::GbGlb, tag::String="")
+    println(tag*"================================================================")
     println("Ndim=$(g.Ndim), Ndens=$(g.Ndens), Nlevels=$(g.Nlevels), dNp=$(g.dNp), dNpts=$(g.dNpts)")
     @show g.ind
     @show round.(g.particles, digits=2)
@@ -268,7 +290,7 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
                 pts::Array{Float64,1}, ind::Array{Int,1},
                 randU::Array{Float64,1}, randN::Array{Float64,1};
                 diffop::Function=-)
-
+    #
     glbs = makeEmptyGbGlb()
     glbs.Ndens = Ndens
     glbs.trees = trees
@@ -365,29 +387,23 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
             maxNp = Npts(tree)
         end
     end
-    Nlevels = floor(Int,(log(Float64(maxNp))/log(2.0))+1.0)  # how many levels to a balanced binary tree?
+
+    # how many levels to a balanced binary tree?
+    Nlevels = floor(Int,(log(Float64(maxNp))/log(2.0))+1.0)
 
     # Generate enough random numbers to get us through the rest of this
     if true
       randU = rand(Int(Np*Ndens*(Niter+2)*Nlevels))
       randN = randn(Int(Ndim*Np*(Nlevels+1)))
     else
-        randU = vec(readdlm("randU.csv"))
-        randN = vec(readdlm("randN.csv"))
+      randU = vec(readdlm("randU.csv"))
+      randN = vec(readdlm("randN.csv"))
     end
 
     gibbs1(Ndens, npds, Np, Niter, points, indices, randU, randN, diffop=diffop);
     return reshape(points, Ndim, Np), reshape(indices, Ndens, Np)
 end
 
-function *(p1::BallTreeDensity, p2::BallTreeDensity)
-  numpts = round(Int,(Npts(p1)+Npts(p2))/2)
-  d = Ndim(p1)
-  d != Ndim(p2) ? error("kdes must have same dimension") : nothing
-  dummy = kde!(rand(d,numpts),[1.0]);
-  pGM, = prodAppxMSGibbsS(dummy, [p1;p2], Union{}, Union{}, Niter=5)
-  return kde!(pGM)
-end
 
 
 function *(pp::Vector{BallTreeDensity})
@@ -399,4 +415,14 @@ function *(pp::Vector{BallTreeDensity})
   dummy = kde!(rand(d,numpts),[1.0]);
   pGM, = prodAppxMSGibbsS(dummy, pp, Union{}, Union{}, Niter=5)
   return kde!(pGM)
+end
+
+function *(p1::BallTreeDensity, p2::BallTreeDensity)
+  return *([p1;p2])
+  # numpts = round(Int,(Npts(p1)+Npts(p2))/2)
+  # d = Ndim(p1)
+  # d != Ndim(p2) ? error("kdes must have same dimension") : nothing
+  # dummy = kde!(rand(d,numpts),[1.0]);
+  # pGM, = prodAppxMSGibbsS(dummy, [p1;p2], Union{}, Union{}, Niter=5)
+  # return kde!(pGM)
 end

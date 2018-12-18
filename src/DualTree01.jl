@@ -226,6 +226,7 @@ function evaluate(bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoo
     end
 
   else
+    # TODO this if statement call consumes a lot of memory for some reason
     if (Npts(bd, dRoot)*Npts(atTree, aRoot)<=DirectSize)  # DIRECT EVALUATION
         evalDirect(bd, dRoot, atTree, aRoot, hdl)
     else
@@ -392,6 +393,8 @@ function evalAvgLogL(bd1::BallTreeDensity, bd2::BallTreeDensity)
   L = evaluateDualTree(bd1, bd2, false) # true
   #printBallTree(bd1)
   W = getWeights(bd2)
+
+  # TODO convert ind to a for loop to avoid memory allocation
   ind = findall(L.==0.0)
   ll = nothing
   if sum(findall(x->x!=0, W[ind])) > 0
@@ -541,6 +544,7 @@ function kde!(points::A, autoselect::String="lcv") where {A <: AbstractArray{Flo
   dims = size(points,1)
   bwds = zeros(dims)
   for i in 1:dims
+    # TODO implement ksize! method to avoid memory allocation with pp
     pp = ksize(marginal(p,[i]), autoselect)
     # pp2 = kde!(samplePts[i,:], "lcv")
     bwds[i] = getBW(pp)[1]

@@ -71,6 +71,7 @@ function marginal(bd::BallTreeDensity, ind::Array{Int,1})
   if size(bd.bandwidth,2) > 2*bd.bt.num_points
     sig = getBW(bd)
   else
+    # TODO avoid memory allocation here
     sig = getBW(bd,[1])
   end
   wts = getWeights(bd)
