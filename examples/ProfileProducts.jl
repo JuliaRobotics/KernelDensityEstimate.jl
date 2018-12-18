@@ -10,17 +10,16 @@ function main()
   numpts = Npts(p)
   dummy = kde!(rand(numpts),[1.0]);
   pGM = zeros(1,numpts)
-  pGM[:,:], = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, Niter=5)
+  @time pGM[:,:], = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, Niter=5)
 
   nothing
 end
 
 main()
 
-using Profile
-Profile.clear_malloc_data()
+# using Profile
+# Profile.clear_malloc_data()
 
 main()
-
-exit()
-0
+# exit()
+# 0

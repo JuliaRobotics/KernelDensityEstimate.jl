@@ -65,36 +65,65 @@ function calcIndices!(glb::GbGlb)::Nothing
   nothing
 end
 
-function getMeanCovDens(glb::GbGlb, j::Int)::Tuple{Float64, Float64}
-  mn=0.0;
-  vn=0.0;
+function getMeanCovDens!(glb::GbGlb,
+                         j::Int,
+                         destMu::Vector{Float64},
+                         destCov::Vector{Float64},
+                         idx::Int,
+                         skip::Int=-1 )::Nothing
+  destMu[idx] = 0.0;
+  destCov[idx] = 0.0;
   # Compute mean and variances (product) of selected particles
   @inbounds @fastmath @simd for z in 1:glb.Ndens
-    # TODO: change to on-manifold operation
-    vn += 1.0/glb.variance[j+glb.Ndim*(z-1)]
-    mn += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
+    if (z!=skip)
+      # TODO: change to on-manifold operation
+      destCov[idx] += 1.0/glb.variance[j+glb.Ndim*(z-1)]
+      destMu[idx] += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
+    end
+  end
+  destCov[idx] = 1.0/destCov[idx];
+  destMu[idx] *= destCov[idx];
+  nothing
+end
+
+function getMeanCovDens(glb::GbGlb, j::Int, skip::Int=-1)::Tuple{Float64, Float64}
+  mn = 0.0;
+  vn = 0.0;
+  # Compute mean and variances (product) of selected particles
+  @inbounds @fastmath @simd for z in 1:glb.Ndens
+    if (z!=skip)
+      # TODO: change to on-manifold operation
+      vn += 1.0/glb.variance[j+glb.Ndim*(z-1)]
+      mn += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
+    end
   end
   vn = 1.0/vn;
   mn *= vn;
   return mn, vn
 end
 
-function indexMeanCovDens!(glb::GbGlb, j::Int, i::Int)
-  iCalmost = 0.0;
-  iMalmost = 0.0;
-  for k in 1:glb.Ndens
-    # TODO change to on-manifold operation
-    if (k!=j) iCalmost += 1.0/glb.variance[i+glb.Ndim*(k-1)]; end
-    if (k!=j) iMalmost += glb.particles[i+glb.Ndim*(k-1)]/glb.variance[i+glb.Ndim*(k-1)]; end
-  end
-  glb.Calmost[i] = 1.0/iCalmost;
-  glb.Malmost[i] = iMalmost * glb.Calmost[i];
+function indexMeanCovDens!(glb::GbGlb, i::Int, skip::Int=-1)
+  getMeanCovDens!(glb, i, glb.Malmo,t, glb.Calmost, i, skip)
+  # second
+  # glb.Malmost[i], glb.Calmost[i] = getMeanCovDens(glb, i, skip)
+  # first
+  # iCalmost = 0.0;
+  # iMalmost = 0.0;
+  # @inbounds @fastmath @simd for z in 1:glb.Ndens
+  #   # TODO change to on-manifold operation
+  #   if (z!=skip)
+  #     iCalmost += 1.0/glb.variance[i+glb.Ndim*(z-1)];
+  #     iMalmost += glb.particles[i+glb.Ndim*(z-1)]/glb.variance[i+glb.Ndim*(z-1)];
+  #   end
+  # end
+  # glb.Calmost[i] = 1.0/iCalmost;
+  # glb.Malmost[i] = iMalmost * glb.Calmost[i];
   nothing
 end
 
-## SLOWEST PIECE OF THE COMPUTATION -- TODO
-# easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations...
 function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb)
+  ## SLOWEST PIECE OF THE COMPUTATION -- TODO
+  # easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations...
   cmo.tmpC = 0.0
   cmo.tmpM = 0.0
 
@@ -183,7 +212,7 @@ function levelDown!(glb::GbGlb)::Nothing
     glb.dNpts[j] = z-1
   end
   tmp = glb.levelList                            # make new list the current
-  glb.levelList = glb.levelListNew              #   list and recycle the old
+  glb.levelList = glb.levelListNew               #   list and recycle the old
   glb.levelListNew=tmp
   nothing
 end
@@ -199,6 +228,7 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
     for z in 1:dNp
       glb.p[z] = 0.0
       for i in 1:glb.Ndim
+        # TODO X - mean should likely be on manifold
         tmp = X[i+frm] - mean(glb.trees[j], zz, i)
         glb.p[z] += (tmp*tmp) / bw(glb.trees[j], zz, i)
         glb.p[z] += Base.log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
@@ -239,7 +269,8 @@ function sampleIndex(j::Int, cmo::MSCompOpt, glb::GbGlb)
   cmo.pT = 0.0
   # determine product of selected particles from all but jth density
   for i in 1:glb.Ndim
-    indexMeanCovDens!(glb, j, i)
+    getMeanCovDens!(glb, i, glb.Malmost, glb.Calmost, i, j)
+    # indexMeanCovDens!(glb, i, j)
   end
 
   makeFasterSampleIndex!(j, cmo, glb)
