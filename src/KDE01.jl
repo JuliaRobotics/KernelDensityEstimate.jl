@@ -13,6 +13,11 @@ function kde!(points::A, ks::Array{Float64,1}, weights::Array{Float64,1}) where 
   #if (length())
 end
 
+"""
+    $(SIGNATURES)
+
+Construct a BallTreeDensity object using `points` for centers and bandwidth `ks`.
+"""
 function kde!(points::A, ks::Array{Float64,1}) where {A <: AbstractArray{Float64,2}}
   Nd, Np = size(points)
   weights = ones(Np)
@@ -27,6 +32,11 @@ function kde!(points::Array{Float64,1}, ks::Array{Float64,1})
   kde!(pts, ks, weights)
 end
 
+"""
+    $(SIGNATURES)
+
+Return the points (centers) used to construct the KDE.
+"""
 function getPoints(bd::BallTreeDensity)
     pts=zeros(bd.bt.dims, bd.bt.num_points)
     perm = bd.bt.permutation[(bd.bt.num_points + 1):end]
@@ -40,8 +50,11 @@ function getPoints(bd::BallTreeDensity)
 end
 
 
-#s = zeros(dens.D,dens.N);
-#s(:,double(dens.perm(dens.N + (1:dens.N)))+1) = dens.bandwidth(:,dens.N + (1:dens.N));
+"""
+    $(SIGNATURES)
+
+Return the bandwidths used for each kernel in the density estimate.
+"""
 function getBW(bd::BallTreeDensity, ind::Array{Int,1}=zeros(Int,0))
   if length(ind)==0
     ind=1:bd.bt.num_points
@@ -55,6 +68,11 @@ function getBW(bd::BallTreeDensity, ind::Array{Int,1}=zeros(Int,0))
   return s
 end
 
+"""
+    $(SIGNATURES)
+
+Return the weights used for each kernel in the density estimate.
+"""
 function getWeights(bd::BallTreeDensity, ind::Array{Int,1}=zeros(Int,0))
   if length(ind)==0
     ind=1:bd.bt.num_points
@@ -66,6 +84,11 @@ function getWeights(bd::BallTreeDensity, ind::Array{Int,1}=zeros(Int,0))
   return wts
 end
 
+"""
+    $(SIGNATURES)
+
+Extract the marginal distribution from the given higher dimensional kernel density estimate object.
+"""
 function marginal(bd::BallTreeDensity, ind::Array{Int,1})
   pts = getPoints(bd)
   if size(bd.bandwidth,2) > 2*bd.bt.num_points
@@ -82,6 +105,11 @@ function randKernel(N::Int, M::Int, ::Type{KernelDensityEstimate.GaussianKer}) #
   return randn(N,M)
 end
 
+"""
+   $(SIGNATURES)
+
+Randomly sample points from the KernelDensityEstimate object.
+"""
 function sample(npd::BallTreeDensity, Npts::Int)
   pts = getPoints(npd)
   points = zeros(npd.bt.dims, Npts)
@@ -109,6 +137,11 @@ function sample(npd::BallTreeDensity, Npts::Int, ind::Array{Int,1})
   return points, ind
 end
 
+"""
+    $(SIGNATURES)
+
+Randomly sample points from the KernelDensityEstimate object.
+"""
 function rand(p::BallTreeDensity, N::Int=1)
     return KernelDensityEstimate.sample(p,N)[1]
 end

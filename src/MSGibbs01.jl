@@ -22,6 +22,12 @@ mutable struct GbGlb
     dNpts::Array{Int,1}
     ruptr::Int
     rnptr::Int
+    mn::Vector{Float64}
+    vn::Vector{Float64}
+    calclambdas::Vector{Float64}
+    calcmu::Vector{Float64}
+    getMu::Function
+    getLambda::Function
 end
 
 function makeEmptyGbGlb()
@@ -41,7 +47,10 @@ function makeEmptyGbGlb()
                 ones(Int,1,0),
                 ones(Int,1,0),
                 zeros(Int,0),
-                0, 0)
+                0, 0,
+                Float64[0.0;], Float64[0.0;],
+                zeros(0), zeros(0),
+                +, + )
 end
 
 
@@ -65,61 +74,48 @@ function calcIndices!(glb::GbGlb)::Nothing
   nothing
 end
 
+getEuclidLambda(lambdas::Vector{Float64})::Float64 = sum(lambdas)
+
+function getEuclidMu(mus::Vector{Float64}, lambdas::Vector{Float64})
+  mu = 0.0
+  for z in 1:length(mus)
+    mu += mus[z]*lambdas[z]
+  end
+  return mu
+end
+
 function getMeanCovDens!(glb::GbGlb,
                          j::Int,
                          destMu::Vector{Float64},
                          destCov::Vector{Float64},
                          idx::Int,
-                         skip::Int=-1 )::Nothing
+                         skip::Int=-1  )::Nothing
   destMu[idx] = 0.0;
   destCov[idx] = 0.0;
   # Compute mean and variances (product) of selected particles
-  @inbounds @fastmath @simd for z in 1:glb.Ndens
-    if (z!=skip)
-      # TODO: change to on-manifold operation
-      destCov[idx] += 1.0/glb.variance[j+glb.Ndim*(z-1)]
-      destMu[idx] += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
+  if false
+    @inbounds @fastmath @simd for z in 1:glb.Ndens
+      if (z!=skip)
+        # TODO: change to on-manifold operation
+        destCov[idx] += 1.0/glb.variance[j+glb.Ndim*(z-1)]
+        destMu[idx] += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
+      end
     end
+    destCov[idx] = 1.0/destCov[idx];
+    destMu[idx] *= destCov[idx];
+  else
+    # on manifold development
+    @inbounds @fastmath @simd for z in 1:glb.Ndens
+      glb.calclambdas[z] = 1.0/glb.variance[j+glb.Ndim*(z-1)]
+      glb.calcmu[z] = glb.particles[j+glb.Ndim*(z-1)]
+    end
+    destCov[idx] = getEuclidLambda(glb.calclambdas)
+    destCov[idx] = 1.0/destCov[idx]
+    destMu[idx] = destCov[idx]*getEuclidMu(glb.calcmu, glb.calclambdas)
   end
-  destCov[idx] = 1.0/destCov[idx];
-  destMu[idx] *= destCov[idx];
   nothing
 end
 
-function getMeanCovDens(glb::GbGlb, j::Int, skip::Int=-1)::Tuple{Float64, Float64}
-  mn = 0.0;
-  vn = 0.0;
-  # Compute mean and variances (product) of selected particles
-  @inbounds @fastmath @simd for z in 1:glb.Ndens
-    if (z!=skip)
-      # TODO: change to on-manifold operation
-      vn += 1.0/glb.variance[j+glb.Ndim*(z-1)]
-      mn += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
-    end
-  end
-  vn = 1.0/vn;
-  mn *= vn;
-  return mn, vn
-end
-
-function indexMeanCovDens!(glb::GbGlb, i::Int, skip::Int=-1)
-  getMeanCovDens!(glb, i, glb.Malmo,t, glb.Calmost, i, skip)
-  # second
-  # glb.Malmost[i], glb.Calmost[i] = getMeanCovDens(glb, i, skip)
-  # first
-  # iCalmost = 0.0;
-  # iMalmost = 0.0;
-  # @inbounds @fastmath @simd for z in 1:glb.Ndens
-  #   # TODO change to on-manifold operation
-  #   if (z!=skip)
-  #     iCalmost += 1.0/glb.variance[i+glb.Ndim*(z-1)];
-  #     iMalmost += glb.particles[i+glb.Ndim*(z-1)]/glb.variance[i+glb.Ndim*(z-1)];
-  #   end
-  # end
-  # glb.Calmost[i] = 1.0/iCalmost;
-  # glb.Malmost[i] = iMalmost * glb.Calmost[i];
-  nothing
-end
 
 function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb)
   ## SLOWEST PIECE OF THE COMPUTATION -- TODO
@@ -131,10 +127,11 @@ function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb)
   for z in 1:(glb.dNpts[j])
     glb.p[z] = 0.0
     for i in 1:glb.Ndim
-      # TODO convert to on-manifold operations
       cmo.tmpC = bw(glb.trees[j], zz, i) + glb.Calmost[i]
+      # TODO maybe need to convert to on-manifold operations
       cmo.tmpM = mean(glb.trees[j], zz, i) - glb.Malmost[i]
-      glb.p[z] += abs2(cmo.tmpM)/cmo.tmpC + log(cmo.tmpC) # This is the slowest piece
+      # This is the slowest piece
+      glb.p[z] += abs2(cmo.tmpM)/cmo.tmpC + log(cmo.tmpC)
     end
     glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz) # slowest piece
     z < glb.dNpts[j] ? zz = glb.levelList[j,(z+1)] : nothing
@@ -182,13 +179,15 @@ function initIndices!(glb::GbGlb)
 end
 
 
-function samplePoint!(X::Array{Float64,1}, glb::GbGlb, frm::Int)::Nothing
+function samplePoint!(X::Array{Float64,1},
+                      glb::GbGlb,
+                      frm::Int )::Nothing
   #counter = 1
   for j in 1:glb.Ndim
-    mn, vn = getMeanCovDens(glb, j)
+    getMeanCovDens!(glb, j, glb.mn, glb.vn, 1 )
     # then draw a sample from it
     glb.rnptr += 1
-    X[j+frm] = mn + sqrt(vn) * glb.randN[glb.rnptr] #counter
+    X[j+frm] = glb.mn[1] + sqrt(glb.vn[1]) * glb.randN[glb.rnptr] #counter
   end
   return nothing
 end
@@ -265,11 +264,13 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
 end
 
 
-function sampleIndex(j::Int, cmo::MSCompOpt, glb::GbGlb)
+function sampleIndex(j::Int,
+                     cmo::MSCompOpt,
+                     glb::GbGlb  )
   cmo.pT = 0.0
   # determine product of selected particles from all but jth density
   for i in 1:glb.Ndim
-    getMeanCovDens!(glb, i, glb.Malmost, glb.Calmost, i, j)
+    getMeanCovDens!(glb, i, glb.Malmost, glb.Calmost, i, j )
     # indexMeanCovDens!(glb, i, j)
   end
 
@@ -320,7 +321,8 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
                 Np::Int, Niter::Int,
                 pts::Array{Float64,1}, ind::Array{Int,1},
                 randU::Array{Float64,1}, randN::Array{Float64,1};
-                diffop::Function=-)
+                getMu::Function=getEuclidMu,
+                getLambda::Function=getEuclidLambda)
     #
     glbs = makeEmptyGbGlb()
     glbs.Ndens = Ndens
@@ -342,6 +344,10 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
     glbs.p = zeros(maxNp)
     glbs.Malmost = zeros(glbs.Ndim)
     glbs.Calmost = zeros(glbs.Ndim)
+    glbs.calcmu = zeros(glbs.Ndens)
+    glbs.calclambdas = zeros(glbs.Ndens)
+    glbs.getMu = getMu
+    glbs.getLambda = getLambda
     glbs.Nlevels = floor(Int,((log(maxNp)/log(2))+1))
     glbs.particles = zeros(glbs.Ndim*Ndens)
     glbs.variance  = zeros(glbs.Ndim*Ndens)
@@ -359,13 +365,13 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
         calcIndices!(glbs)
 
         for l in 1:glbs.Nlevels
-          samplePoint!(glbs.newPoints, glbs, frm)
+          samplePoint!(glbs.newPoints, glbs, frm )
           levelDown!(glbs);
           sampleIndices!(glbs.newPoints, cmoi, glbs, frm);
 
-         @inbounds @fastmath for i in 1:Niter
+          @inbounds @fastmath for i in 1:Niter
             for j in 1:glbs.Ndens
-              sampleIndex(j, cmo, glbs);
+              sampleIndex(j, cmo, glbs );
             end
           end
         end
@@ -373,7 +379,7 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
         for j in 1:glbs.Ndens
           glbs.newIndices[(s-1)*glbs.Ndens+j] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;  # return particle label
         end
-        samplePoint!(glbs.newPoints, glbs, frm);
+        samplePoint!(glbs.newPoints, glbs, frm );
     end
     glbs = 0
     nothing
@@ -399,7 +405,8 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
                           anFcns,
                           anParams;
                           Niter::Int=5,
-                          diffop::Function=-)
+                          getMu::Function=getEuclidMu,
+                          getLambda::Function=getEuclidLambda )
     # See  Ihler,Sudderth,Freeman,&Willsky, "Efficient multiscale sampling from products
     #         of Gaussian mixtures", in Proc. Neural Information Processing Systems 2003
     Ndens = length(npds)              # of densities
@@ -431,7 +438,7 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
       randN = vec(readdlm("randN.csv"))
     end
 
-    gibbs1(Ndens, npds, Np, Niter, points, indices, randU, randN, diffop=diffop);
+    gibbs1(Ndens, npds, Np, Niter, points, indices, randU, randN, getMu=getMu, getLambda=getLambda );
     return reshape(points, Ndim, Np), reshape(indices, Ndens, Np)
 end
 

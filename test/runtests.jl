@@ -2,6 +2,8 @@ using KernelDensityEstimate
 using Test
 using LinearAlgebra, Statistics, DelimitedFiles
 
+include("testKnownConstructions.jl")
+
 # parse the output from matlab process
 function parseMatPrintKDE(filename::String)
   fid = open(filename,"r")

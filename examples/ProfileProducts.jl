@@ -1,6 +1,7 @@
 # profile products
 
 using KernelDensityEstimate
+using KernelDensityEstimatePlotting
 
 function main()
   p = kde!(randn(100));
@@ -10,9 +11,10 @@ function main()
   numpts = Npts(p)
   dummy = kde!(rand(numpts),[1.0]);
   pGM = zeros(1,numpts)
-  @time pGM[:,:], = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, Niter=5)
+  @time pGM[:,:], = prodAppxMSGibbsS(dummy, [p;q], nothing, nothing, Niter=5)
 
-  nothing
+  pq = kde!(pGM)
+  plotKDE([p;q;pq], c=["red";"green";"blue"])
 end
 
 main()
