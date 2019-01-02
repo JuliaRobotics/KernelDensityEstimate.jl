@@ -55,7 +55,8 @@ include("DualTree01.jl")
 include("KDE01.jl")
 
 include("MSGibbs01.jl")
-include("Deprecated.jl")
+include("StringSerialization.jl")
+
 
 """
 A Julia package for Kernel Density Estimation and approximations of their products
