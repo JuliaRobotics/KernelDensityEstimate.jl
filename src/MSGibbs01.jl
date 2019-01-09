@@ -391,7 +391,7 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
                           anFcns,
                           anParams,
                           Niter::Int )
-  @warn "prodApproxMSGibbs has new keyword interface, use (..; Niter::Int=5, diffop::Function=-) instead"
+  @warn "prodApproxMSGibbs has new keyword interface, use (..; Niter::Int=5 ) instead"
   prodAppxMSGibbsS(npd0,
                    npds,
                    anFcns,
