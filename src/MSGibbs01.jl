@@ -109,9 +109,9 @@ function getMeanCovDens!(glb::GbGlb,
       glb.calclambdas[z] = 1.0/glb.variance[j+glb.Ndim*(z-1)]
       glb.calcmu[z] = glb.particles[j+glb.Ndim*(z-1)]
     end
-    destCov[idx] = getEuclidLambda(glb.calclambdas)
+    destCov[idx] = glb.getLambda(glb.calclambdas)
     destCov[idx] = 1.0/destCov[idx]
-    destMu[idx] = destCov[idx]*getEuclidMu(glb.calcmu, glb.calclambdas)
+    destMu[idx] = destCov[idx]*glb.getMu(glb.calcmu, glb.calclambdas)
   end
   nothing
 end
@@ -396,8 +396,7 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
                    npds,
                    anFcns,
                    anParams;
-                   Niter=Niter,
-                   diffop=-)
+                   Niter=Niter )
 end
 
 function prodAppxMSGibbsS(npd0::BallTreeDensity,

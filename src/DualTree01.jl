@@ -12,8 +12,7 @@ end
 
 
 
-function minDistGauss!(restmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)
-  #@show "minDistGauss",  dRoot, aRoot
+function minDistGauss!(restmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::Int, atTree::BallTreeDensity, aRoot::Int)::Nothing
   #atCenter = center(atTree, aRoot)
   #densCenter = center(bd, dRoot)
   #bw = bwMax(bd, dRoot)
