@@ -16,10 +16,13 @@ function minDistGauss!(restmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::In
   #atCenter = center(atTree, aRoot)
   #densCenter = center(bd, dRoot)
   #bw = bwMax(bd, dRoot)
+  # dRoot != 1 && error("dRoot=$dRoot, aRoot=$aRoot")
+
   @fastmath @inbounds begin
     restmp[1] = 0.0
     #tmp = 0.0
     for k=1:Ndim(atTree.bt)
+      ## TODO upgrade for more general manifolds
       restmp[2] = abs( center(atTree.bt, aRoot, k) - center(bd.bt, dRoot, k) )
       restmp[2] -= rangeB(atTree.bt, aRoot, k) + rangeB(bd.bt, dRoot, k)
       restmp[2] = (restmp[2] > 0) ? restmp[2] : 0.0
@@ -40,14 +43,14 @@ function maxDistGauss!(rettmp::Vector{Float64}, bd::BallTreeDensity, dRoot::Int,
   #bw = bwMin(bd, dRoot)
 
   rettmp[1] = 0.0
-  for k in 1:Ndim(atTree.bt)
-    @fastmath begin
-      @inbounds rettmp[2] = abs( center(atTree.bt, aRoot, k) - center(bd.bt, dRoot, k) )
-      @inbounds rettmp[2] += rangeB(atTree.bt, aRoot,k) + rangeB(bd.bt, dRoot, k)
+  @fastmath @inbounds begin for k in 1:Ndim(atTree.bt)
+      # TODO upgrade for more general manifolds
+      rettmp[2] = abs( center(atTree.bt, aRoot, k) - center(bd.bt, dRoot, k) )
+      rettmp[2] += rangeB(atTree.bt, aRoot,k) + rangeB(bd.bt, dRoot, k)
       if ( bwUniform(bd) )
-          @inbounds rettmp[1] -= (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
+          rettmp[1] -= (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
       else
-          @inbounds rettmp[1] -= (rettmp[2]*rettmp[2])/(bwMin(bd, dRoot, k)) + (log(bwMax(bd.bt, dRoot, k))) # TODO - Root not defined here
+          rettmp[1] -= (rettmp[2]*rettmp[2])/(bwMin(bd, dRoot, k)) + (log(bwMax(bd.bt, dRoot, k))) # TODO - Root not defined here
       end
     end
   end
@@ -245,6 +248,7 @@ function evaluate(bd::BallTreeDensity,
 
   # if the weighted contribution of this multiply is below the
   #    threshold, no need to recurse; just treat as constant
+  # TODO change to on-manifold evalutation
   if ( Kmax - Kmin <= maxErr * total)            # APPROXIMATE: PERCENT
     Kmin *= weight(bd, dRoot);
     Kmax *= weight(bd, dRoot);
@@ -266,57 +270,39 @@ end
 # Dual Tree evaluation: estimate the values at this ball tree's
 # points given the other tree as the samples from a distribution.
 function evaluate(bd::BallTreeDensity, locations::BallTreeDensity, p::Array{Float64,1}, maxErr::Float64)
-  #println("BallTreeDensity::evaluate(bd, locations, double*, maxerr) -- starting")
 
   if bd.bt.dims != locations.bt.dims
     error("evaluate -- dimensions of two BallTreeDensities must match")
   end
-  # if (p == Union{})
-  #   error("evaluate -- density p must exist")
-  # end
 
-  # TODO -- this internal declaration is making it slow!!
+  # required memory allocations TODO consider moving out of loocv loop
   hdl = pArrHdls(zeros(2*locations.bt.num_points),
                  zeros(2*locations.bt.num_points),
-                 zeros(1,0),#zeros(1,2*locations.bt.dims),
-                 zeros(0),#zeros(2*locations.bt.num_points),
+                 zeros(1,0), #zeros(1,2*locations.bt.dims),
+                 zeros(0),   #zeros(2*locations.bt.num_points),
                  [0.], [0.])
 
   evaluate(bd, root(), locations, root(), 2.0*maxErr, hdl)
 
-  # Compute & account for the kernel f'ns normalization constant
-  #norm = 1.0
-  #switch(getType()) {
-    #case Gaussian:
-    norm = (2.0*pi)^((bd.bt.dims)/2.0)
-    if (bwUniform(bd))
-      for i in 1:bd.bt.dims
-          norm *= sqrt(bd.bandwidthMax[i])
-      end
+  # Gaussian kernel (add other kernel types here)
+  norm = (2.0*pi)^((bd.bt.dims)/2.0)
+  if (bwUniform(bd))
+    @inbounds @fastmath @simd for i in 1:bd.bt.dims
+        norm *= sqrt(bd.bandwidthMax[i])
     end
+  end
 
-    #case Laplacian: norm = pow(2, ((double)Ndim()) );
-    #                if (bwUniform())
-    #                  for (unsigned int i=0;i<Ndim();i++) norm *= bandwidthMax[i];
-    #                break;
-    #case Epanetchnikov: norm = pow(4.0/3, ((double)Ndim()) );
-    #                if (bwUniform())
-    #                  for (unsigned int i=0;i<Ndim();i++) norm *= bandwidthMax[i];
-    #                break;
-  #}
   lRoot = root()
-  #@show size(hdl.pMin), size(hdl.pMax)
   if (bd == locations)    # if we need to do leave-one-out
     for j in leafFirst(locations, lRoot):(leafLast(locations, lRoot))
-      #println("if bd==locations j=$(j)")
       p[getIndexOf(locations, j)] = 0.5*(hdl.pMin[j]+hdl.pMax[j])/norm/(1.0-weight(bd, j))
     end
   else
     for j in leafFirst(locations, lRoot):(leafLast(locations, lRoot))
-      #println("else bd==locations j=$(j)")
       p[getIndexOf(locations, j)] = 0.5*(hdl.pMin[j]+hdl.pMax[j])/norm;
     end
   end
+
   hdl.pMin = zeros(0)
   hdl.pMax = zeros(0)
   nothing
@@ -436,38 +422,47 @@ function updateBandwidth!(bd::BallTreeDensity, bw::Array{Float64, 1})
 end
 
 function nLOO_LL(alpha::Float64, bd::BallTreeDensity)
-  alpha = alpha.^2  # assume always a Gaussian
+  # assume always a Gaussian
+  alpha = alpha.^2
+
   updateBandwidth!(bd,bd.bandwidth*alpha)
   H = entropy(bd)
   updateBandwidth!(bd,bd.bandwidth/alpha)
+
   return H
 end
 
+"""
+    $(SIGNATURES)
+
+GOLDEN   Minimize the nLOO_LL function for KDE bandwidth selection
+of one variable using golden section search.
+
+xmin, fmin = golden(npd, f, ax, bx, cx, tol) computes a local minimum
+of f = KDE.nLOO_LL. xmin is the computed local minimizer of f and fmin is
+f(xmin). xmin is computed to an relative accuracy of TOL.
+
+The parameters ax, bx and cx must satisfy the following conditions:
+ax < bx < cx, f(bx) < f(ax) and f(bx) < f(cx).
+
+xmin satisfies ax < xmin < cx. golden is guaranteed to succeed if f
+is continuous between ax and cx
+
+Roman Geus, ETH Zuerich, 9.12.97
+"""
 function golden(bd::BallTreeDensity, ax::Float64, bx::Float64, cx::Float64, tol::Float64=1e-2)
-#GOLDEN   Minimize function of one variable using golden section search
-#
-#   xmin, fmin = golden(npd, f, ax, bx, cx, tol) computes a local minimum
-#   of f. xmin is the computed local minimizer of f and fmin is
-#   f(xmin). xmin is computed to an relative accuracy of TOL.
-#
-#   The parameters ax, bx and cx must satisfy the following conditions:
-#   ax < bx < cx, f(bx) < f(ax) and f(bx) < f(cx).
-#
-#   xmin satisfies ax < xmin < cx. golden is guaranteed to succeed if f
-#   is continuous between ax and cx
-#
-#   Roman Geus, ETH Zuerich, 9.12.97
 
-    C = (3.0-sqrt(5.0))/2.0;
-    R = 1.0-C;
+    C = (3.0-sqrt(5.0))/2.0
+    R = 1.0-C
 
-    x0 = ax;  x3 = cx;
+    x0 = ax
+    x3 = cx
     if (abs(cx-bx) > abs(bx-ax))
-      x1 = bx;
+      x1 = bx
       x2 = bx + C*(cx-bx)
     else
-      x2 = bx;
       x1 = bx - C*(bx-ax)
+      x2 = bx
     end
 
     #@show x1, x2
@@ -479,12 +474,14 @@ function golden(bd::BallTreeDensity, ax::Float64, bx::Float64, cx::Float64, tol:
     while abs(x3-x0) > tol*(abs(x1)+abs(x2))
     #  fprintf(1,'k=%4d, |a-b|=%e\n', k, abs(x3-x0));
       if f2 < f1
-        x0 = x1;  x1 = x2;
+        x0 = x1
+        x1 = x2
         x2 = R*x1 + C*x3   # x2 = x1+c*(x3-x1)
-        f1 = f2;
+        f1 = f2
         f2 = nLOO_LL(x2,bd)
       else
-        x3 = x2; x2 = x1;
+        x3 = x2
+        x2 = x1
         x1 = R*x2 + C*x0   # x1 = x2+c*(x0-x2)
         f2 = f1
         f1 = nLOO_LL(x1,bd)
@@ -515,12 +512,13 @@ function neighborMinMax(bd::BallTreeDensity)
 end
 
 function ksize(bd::BallTreeDensity, t::String="lcv")
-    # sticking with lcv to start
-    Nd = bd.bt.dims; Np = bd.bt.num_points;
+    Nd = bd.bt.dims;
+    Np = bd.bt.num_points;
+
     ##if (t=="lcv" || 'unif','lcvp','unifp')
     minm,maxm = neighborMinMax(bd)
     p = kde!(getPoints(bd),[(minm+maxm)/2.0],getWeights(bd))
-    ks, dummy =  golden(p,2.0*minm/(minm+maxm),1.0,2.0*maxm/(minm+maxm)) #(p,nLOO_LL
+    ks, dummy = golden(p,2.0*minm/(minm+maxm),1.0,2.0*maxm/(minm+maxm))
     ks = ks * ( minm + maxm )/2.0
     ##end
     npd = kde!(getPoints(p),[ks],getWeights(p))
@@ -534,6 +532,8 @@ function kde!(points::A, autoselect::String="lcv") where {A <: AbstractArray{Flo
   #AFTER with independent weights on each dimension
   dims = size(points,1)
   bwds = zeros(dims)
+
+  # TODO convert to @threads after memory allocations are avoided
   for i in 1:dims
     # TODO implement ksize! method to avoid memory allocation with pp
     pp = ksize(marginal(p,[i]), autoselect)

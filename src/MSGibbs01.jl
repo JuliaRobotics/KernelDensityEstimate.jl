@@ -26,8 +26,6 @@ mutable struct GbGlb
     vn::Vector{Float64}
     calclambdas::Vector{Float64}
     calcmu::Vector{Float64}
-    getMu::Function
-    getLambda::Function
 end
 
 function makeEmptyGbGlb()
@@ -49,8 +47,7 @@ function makeEmptyGbGlb()
                 zeros(Int,0),
                 0, 0,
                 Float64[0.0;], Float64[0.0;],
-                zeros(0), zeros(0),
-                +, + )
+                zeros(0), zeros(0)  )
 end
 
 
@@ -89,7 +86,9 @@ function getMeanCovDens!(glb::GbGlb,
                          destMu::Vector{Float64},
                          destCov::Vector{Float64},
                          idx::Int,
-                         skip::Int=-1  )::Nothing
+                         skip::Int,
+                         getMu::Function=getEuclidMu,
+                         getLambda::Function=getEuclidLambda  )::Nothing
   destMu[idx] = 0.0;
   destCov[idx] = 0.0;
   # Compute mean and variances (product) of selected particles
@@ -109,9 +108,9 @@ function getMeanCovDens!(glb::GbGlb,
       glb.calclambdas[z] = 1.0/glb.variance[j+glb.Ndim*(z-1)]
       glb.calcmu[z] = glb.particles[j+glb.Ndim*(z-1)]
     end
-    destCov[idx] = glb.getLambda(glb.calclambdas)
+    destCov[idx] = getLambda(glb.calclambdas)
     destCov[idx] = 1.0/destCov[idx]
-    destMu[idx] = destCov[idx]*glb.getMu(glb.calcmu, glb.calclambdas)
+    destMu[idx] = destCov[idx]*getMu(glb.calcmu, glb.calclambdas)
   end
   nothing
 end
@@ -181,10 +180,12 @@ end
 
 function samplePoint!(X::Array{Float64,1},
                       glb::GbGlb,
-                      frm::Int )::Nothing
+                      frm::Int,
+                      getMu::Function=getEuclidMu,
+                      getLambda::Function=getEuclidLambda )::Nothing
   #counter = 1
   for j in 1:glb.Ndim
-    getMeanCovDens!(glb, j, glb.mn, glb.vn, 1 )
+    getMeanCovDens!(glb, j, glb.mn, glb.vn, 1, -1, getMu, getLambda )
     # then draw a sample from it
     glb.rnptr += 1
     X[j+frm] = glb.mn[1] + sqrt(glb.vn[1]) * glb.randN[glb.rnptr] #counter
@@ -253,7 +254,7 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
       if z<=dNp
         zz=glb.levelList[j,z]
       else
-        error("This should never happend due to -1 MSGibbs01.jl")
+        error("This should never happen due to -1")
       end
     end
     glb.ind[j] = zz
@@ -266,11 +267,13 @@ end
 
 function sampleIndex(j::Int,
                      cmo::MSCompOpt,
-                     glb::GbGlb  )
+                     glb::GbGlb,
+                     getMu::Function=getEuclidMu,
+                     getLambda::Function=getEuclidLambda  )
   cmo.pT = 0.0
   # determine product of selected particles from all but jth density
   for i in 1:glb.Ndim
-    getMeanCovDens!(glb, i, glb.Malmost, glb.Calmost, i, j )
+    getMeanCovDens!(glb, i, glb.Malmost, glb.Calmost, i, j, getMu, getLambda )
     # indexMeanCovDens!(glb, i, j)
   end
 
@@ -346,8 +349,6 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
     glbs.Calmost = zeros(glbs.Ndim)
     glbs.calcmu = zeros(glbs.Ndens)
     glbs.calclambdas = zeros(glbs.Ndens)
-    glbs.getMu = getMu
-    glbs.getLambda = getLambda
     glbs.Nlevels = floor(Int,((log(maxNp)/log(2))+1))
     glbs.particles = zeros(glbs.Ndim*Ndens)
     glbs.variance  = zeros(glbs.Ndim*Ndens)
@@ -365,13 +366,13 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
         calcIndices!(glbs)
 
         for l in 1:glbs.Nlevels
-          samplePoint!(glbs.newPoints, glbs, frm )
+          samplePoint!(glbs.newPoints, glbs, frm, getMu, getLambda )
           levelDown!(glbs);
           sampleIndices!(glbs.newPoints, cmoi, glbs, frm);
 
           @inbounds @fastmath for i in 1:Niter
             for j in 1:glbs.Ndens
-              sampleIndex(j, cmo, glbs );
+              sampleIndex(j, cmo, glbs, getMu, getLambda );
             end
           end
         end
@@ -379,7 +380,7 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
         for j in 1:glbs.Ndens
           glbs.newIndices[(s-1)*glbs.Ndens+j] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;  # return particle label
         end
-        samplePoint!(glbs.newPoints, glbs, frm );
+        samplePoint!(glbs.newPoints, glbs, frm, getMu, getLambda );
     end
     glbs = 0
     nothing
