@@ -103,22 +103,22 @@ end
 """
     $SIGNATURES
 
-Multiplication of Gaussians for leave in densities (skip `skip`).  For on-manifold operations, set `getMu` and `getLambda` operations.
+Multiplication of Gaussians using leave in densities (if skip `skip` > 0).  For on-manifold operations, set `getMu` and `getLambda` operations accordingly.
 
 Notes
 -----
 - Used twice in samplePoint! (won't skip) and sampleIndex (will skip LOO).
 - Assumes manifold `diffop` baked into `getMu`.
-
+- use `j`th dimension
 """
-function getMeanCovDens!(glb::GbGlb,
-                         j::Int,
-                         destMu::Vector{Float64},
-                         destCov::Vector{Float64},
-                         idx::Int,
-                         skip::Int,
-                         getMu::Function=getEuclidMu,
-                         getLambda::Function=getEuclidLambda  )::Nothing
+function gaussianProductMeanCov!(glb::GbGlb,
+                                 j::Int,
+                                 destMu::Vector{Float64},
+                                 destCov::Vector{Float64},
+                                 idx::Int,
+                                 skip::Int,
+                                 getMu::Function=getEuclidMu,
+                                 getLambda::Function=getEuclidLambda  )::Nothing
   destMu[idx] = 0.0;
   destCov[idx] = 0.0;
   # Compute mean and variances (product) of selected particles
@@ -243,9 +243,11 @@ function initIndices!(glb::GbGlb)
 end
 
 """
+    $SIGNATURES
 
+Sampling a point from the product of kernels (density components) listed in `glb.variance` and `glb.particles` without skipping a kernel (not a leave-one-out case).
 
-Sampling a point from the product of all densities
+Manifold defined by `addop`, `getMu`, and `getLambda`.
 """
 function samplePoint!(X::Array{Float64,1},
                       glb::GbGlb,
@@ -255,11 +257,10 @@ function samplePoint!(X::Array{Float64,1},
                       getLambda::Function=getEuclidLambda )::Nothing
   #counter = 1
   for j in 1:glb.Ndim
-    # does not skip -- i.e. skip = -1
-    getMeanCovDens!(glb, j, glb.mn, glb.vn, 1, -1, getMu, getLambda )
+    # Calculate on-manifold mean and covariance.  Does not skip a density here -- i.e. skip = -1;  see `sampleIndex(...)`
+    gaussianProductMeanCov!(glb, j, glb.mn, glb.vn, 1, -1, getMu, getLambda ) # getMeanCovDens!
     # then draw a sample from it
     glb.rnptr += 1
-    # TODO adding the mean should be on manifold
     X[j+frm] = addop(glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] ) #counter
   end
   return nothing
@@ -289,16 +290,31 @@ function levelDown!(glb::GbGlb)::Nothing
   nothing
 end
 
+"""
+    $SIGNATURES
+
+??
+
+Notes
+-----
+- This function does kernel evaluation internally
+- Does not have a loo skip
+
+"""
 function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::Int)#pT::Array{Float64,1}
   counter=1
   zz=0
   for j in 1:glb.Ndens
+    # how many kernels in this density
     dNp = glb.dNpts[j]    #trees[j].Npts();
     cmoi.pT = 0.0
 
+    # ?? which level of the tree are you?
     zz=glb.levelList[j,1]
     for z in 1:dNp
       glb.p[z] = 0.0
+
+      # TODO try refactor as evalKernel on manifold
       for i in 1:glb.Ndim
         # TODO X - mean should likely be on manifold
         tmp = X[i+frm] - mean(glb.trees[j], zz, i)
@@ -364,7 +380,7 @@ function sampleIndex(j::Int,
   cmo.pT = 0.0
   # determine product of selected kernel-labels from all but jth density (leave out)
   for i in 1:glb.Ndim
-    getMeanCovDens!(glb, i, glb.Malmost, glb.Calmost, i, j, getMu, getLambda )
+    gaussianProductMeanCov!(glb, i, glb.Malmost, glb.Calmost, i, j, getMu, getLambda )
     # indexMeanCovDens!(glb, i, j)
   end
 
@@ -425,6 +441,7 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
     glbs = makeEmptyGbGlb()
     glbs.Ndens = Ndens
     glbs.trees = trees
+    # location for final posterior product samples
     glbs.newPoints = pts
     glbs.newIndices = ind
     glbs.randU = randU
@@ -455,6 +472,7 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
 
     # loop for all output kernels in product (how many samples do you want from product)
     for s in 1:Np
+        # index of where to put new sampled point in final posterior product
         frm = ((s-1)*glbs.Ndim)
 
         # initial assignments
@@ -464,15 +482,16 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
 
         # iterate down multi-scales of the Ball (k-d) tree (of the posterior belief?)
         for l in 1:glbs.Nlevels
-          # ?? multiply selected kernels from incoming densities
+          # multiply selected kernels from incoming densities, and sample a new point from the product.
           samplePoint!(glbs.newPoints, glbs, frm, addop, getMu, getLambda )
+
           # step a level down in the tree`
           levelDown!(glbs);
+
           # ??
           sampleIndices!(glbs.newPoints, cmoi, glbs, frm);
 
-              # ?? gibbs iteration to select a new kernel (might be confusing samplePoint!)
-
+          # After T iters, selected a kernel from each density
           @inbounds @fastmath for i in 1:Niter
             for j in 1:glbs.Ndens
               # pick a new label (kernel_i) from the LOO density (j) -- assumed leave in Gaussian product already computed
@@ -484,7 +503,9 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
         for j in 1:glbs.Ndens
           glbs.newIndices[(s-1)*glbs.Ndens+j] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;  # return particle label
         end
-        # ?? sample a value from new posterior kernel
+
+        # take Gaussian product from a kernel component in all densities (inside samplePoint ??)
+        # and then sample a value from new posterior kernel
         samplePoint!(glbs.newPoints, glbs, frm, addop, getMu, getLambda );
     end
     glbs = 0
