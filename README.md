@@ -91,7 +91,7 @@ draw(PDF("test.pdf",30cm,20cm),
  plot( kde!(randn(4,200)) ) )
 
 N=200;
-pts = [2*randn(1,N)+3;
+pts = [2*randn(1,N).+3;
  [2*randn(1,round(Int,N/2))'.+3.0;2*randn(1,round(Int,N/2))'.-3.0]';
  2*randn(2,N).+3];
 p, q = kde!(randn(4,100)), kde!(pts);
