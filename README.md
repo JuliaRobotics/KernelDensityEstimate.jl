@@ -35,7 +35,7 @@ Bring the module into the workspace
 using KernelDensityEstimate
 # Basic one dimensional examples
 # using leave-one-out likelihood cross validation for bandwidth estimation
-p100 = kde!([randn(50);10.0+2*randn(50)])
+p100 = kde!([randn(50);10.0.+2*randn(50)])
 p2 = kde!([0.0;10.0],[1.0]) # multibandwidth still to be added
 p75 = resample(p2,75)
 
@@ -56,10 +56,10 @@ plot(pm2);
 Multiscale Gibbs product approximation example
 ```julia
 p = kde!(randn(2,100))
-q = kde!(2.0+randn(2,100))
+q = kde!(2.0.+randn(2,100))
 dummy = kde!(rand(2,100),[1.0]);
 mcmciters = 5
-pGM, = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, mcmciters)
+pGM, = prodAppxMSGibbsS(dummy, [p;q], nothing, nothing, mcmciters)
 pq = kde!(pGM)
 pq1 = marginal(pq,[1])
 Pl1 = plot([marginal(p,[1]);marginal(q,[1]);marginal(pq,[1])],c=["red";"green";"black"])
@@ -76,9 +76,9 @@ KDE product between non-gaussian distributions
 ```julia
 using Distributions
 p = kde!(rand(Beta(1.0,0.45),300));
-q = kde!(rand(Rayleigh(0.5),100)-0.5);
+q = kde!(rand(Rayleigh(0.5),100).-0.5);
 dummy = kde!(rand(1,100),[1.0]);
-pGM, = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, 5)
+pGM, = prodAppxMSGibbsS(dummy, [p;q], nothing, nothing, 5)
 pq = kde!(pGM)
 plot([p;q;pq],c=["red";"green";"black"])
 ```
@@ -92,8 +92,8 @@ draw(PDF("test.pdf",30cm,20cm),
 
 N=200;
 pts = [2*randn(1,N)+3;
- [2*randn(1,round(Int,N/2))'+3.0;2*randn(1,round(Int,N/2))'-3.0]';
- 2*randn(2,N)+3];
+ [2*randn(1,round(Int,N/2))'.+3.0;2*randn(1,round(Int,N/2))'.-3.0]';
+ 2*randn(2,N).+3];
 p, q = kde!(randn(4,100)), kde!(pts);
 draw(PNG("MultidimPlot.png",15cm,10cm),
  plot( [p*q;p;q],c=["red";"black";"blue"], axis=axis, dims=2:4,dimLbls=["w";"x";"y";"z"], levels=4) )
