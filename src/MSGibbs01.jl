@@ -122,6 +122,7 @@ function gaussianProductMeanCov!(glb::GbGlb,
                                  destCov::Vector{Float64},
                                  idx::Int,
                                  skip::Int,
+                                 addop=+,  # currently not required -- baked into getMu
                                  getMu::Function=getEuclidMu,
                                  getLambda::Function=getEuclidLambda  )::Nothing
   destMu[idx] = 0.0;
@@ -132,7 +133,7 @@ function gaussianProductMeanCov!(glb::GbGlb,
       if (z!=skip)
         # TODO: change to on-manifold operation
         destCov[idx] += 1.0/glb.variance[j+glb.Ndim*(z-1)]
-        destMu[idx] += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
+        destMu[idx] = addop(destMu[idx], glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)])
       end
     end
     destCov[idx] = 1.0/destCov[idx];
@@ -195,7 +196,7 @@ function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb, diffop=-)
     for i in 1:glb.Ndim
       # NOTE make sure tmpC can be calculated on linear (Euclidean) manifold
       cmo.tmpC = bw(glb.trees[j], zz, i) + glb.Calmost[i]
-      # on-manifold differencing operation
+      # Note on-manifold differencing operation
       cmo.tmpM = diffop(mean(glb.trees[j], zz, i), glb.Malmost[i])
       # This is the slowest piece
       glb.p[z] += abs2(cmo.tmpM)/cmo.tmpC + log(cmo.tmpC)
@@ -263,7 +264,7 @@ function samplePoint!(X::Array{Float64,1},
   #counter = 1
   for j in 1:glb.Ndim
     # Calculate on-manifold mean and covariance.  Does not skip a density here -- i.e. skip = -1;  see `sampleIndex(...)`
-    gaussianProductMeanCov!(glb, j, glb.mn, glb.vn, 1, -1, getMu, getLambda ) # getMeanCovDens!
+    gaussianProductMeanCov!(glb, j, glb.mn, glb.vn, 1, -1, addop, getMu, getLambda ) # getMeanCovDens!
     # then draw a sample from it
     glb.rnptr += 1
     X[j+frm] = addop(glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] ) #counter
@@ -310,12 +311,15 @@ function sampleIndices!(X::Array{Float64,1},
                         glb::GbGlb,
                         frm::Int,
                         diffop=-  )::Nothing #pT::Array{Float64,1}
+  #
+
+  # calculate likelihood of all kernel means
   counter=1
   zz=0
   for j in 1:glb.Ndens
     # how many kernels in this density
     dNp = glb.dNpts[j]    #trees[j].Npts();
-    # ?? Total probability -- for normalization
+    # Total probability -- for normalization
     cmoi.pT = 0.0
 
     # ?? which level of the tree are you?
@@ -325,29 +329,34 @@ function sampleIndices!(X::Array{Float64,1},
 
       # TODO try refactor as eval kernel on-manifold
       for i in 1:glb.Ndim
-        # TODO X - mean should be on manifold
+        # Note mean is on manifold
         tmp = diffop( X[i+frm], mean(glb.trees[j], zz, i) )
         glb.p[z] += (tmp*tmp) / bw(glb.trees[j], zz, i)
-        glb.p[z] += Base.log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
+        glb.p[z] += log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
       end
+      # final step in calculating Gaussian kernel
       glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j], zz)
       cmoi.pT += glb.p[z]
       zz = z<dNp ? glb.levelList[j,z+1] : zz
     end
+
+    # Normalize the new probabilty for selecting a new kernel
     @simd for z in 1:dNp
         glb.p[z] /= cmoi.pT
     end
 
-    # construct CDF and sample a
+    # construct CDF for sampling a new kernel
     @simd for z in 2:dNp
         glb.p[z] += glb.p[z-1]
     end
 
+    # sample a new kernel from CDF
     z=1
     zz=glb.levelList[j,z]
     while z<=(dNp-1)
-      if (glb.randU[glb.ruptr] <= glb.p[z]) # counter
-        break;                              # new kernel from jth density
+      if (glb.randU[glb.ruptr] <= glb.p[z])
+        # Selected a new kernel (`z`) from the `j`th density
+        break;
       end
       z+=1
       if z<=dNp
@@ -358,7 +367,7 @@ function sampleIndices!(X::Array{Float64,1},
     end
     glb.ind[j] = zz
     counter+=1
-    glb.ruptr += 1
+    glb.ruptr += 1 # increase randU counter
   end
 
   # recompute particles, variance
@@ -388,13 +397,13 @@ Sudderth PhD, p.139, Fig. 3.3, top-left operation
 function sampleIndex(j::Int,
                      cmo::MSCompOpt,
                      glb::GbGlb,
-                     diffop=-,
+                     addop=+, diffop=-,
                      getMu::Function=getEuclidMu,
                      getLambda::Function=getEuclidLambda  )::Nothing
   cmo.pT = 0.0
   # determine product of selected kernel-labels from all but jth density (leave out)
   for i in 1:glb.Ndim
-    gaussianProductMeanCov!(glb, i, glb.Malmost, glb.Calmost, i, j, getMu, getLambda )
+    gaussianProductMeanCov!(glb, i, glb.Malmost, glb.Calmost, i, j, addop, getMu, getLambda )
     # indexMeanCovDens!(glb, i, j)
   end
 
@@ -421,6 +430,8 @@ function sampleIndex(j::Int,
   end
   glb.ind[j] = zz;
   glb.ruptr += 1
+
+  # prep new particles and variances for calculation
   @simd for i in 1:glb.Ndim
     glb.particles[i+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], i)
     glb.variance[i+glb.Ndim*(j-1)]  = bw(glb.trees[j], glb.ind[j], i)
@@ -509,7 +520,7 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
           @inbounds @fastmath for i in 1:Niter
             for j in 1:glbs.Ndens
               # pick a new label (kernel_i) from the LOO density (j) -- assumed leave in Gaussian product already computed
-              sampleIndex(j, cmo, glbs, diffop, getMu, getLambda );
+              sampleIndex(j, cmo, glbs, addop, diffop, getMu, getLambda );
             end
           end
         end
