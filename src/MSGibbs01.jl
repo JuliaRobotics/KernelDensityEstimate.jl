@@ -503,7 +503,7 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
           levelDown!(glbs);
 
           # ??
-          sampleIndices!(glbs.newPoints, cmoi, glbs, frm);
+          sampleIndices!(glbs.newPoints, cmoi, glbs, frm, diffop);
 
           # After T iters, selected a kernel from each density
           @inbounds @fastmath for i in 1:Niter
