@@ -59,6 +59,11 @@ end
 
 ## funcions related to Gaussian product
 
+"""
+    $SIGNATURES
+
+Recompute particles, variance.
+"""
 function calcIndices!(glb::GbGlb)::Nothing
   @fastmath @inbounds begin
     for j in 1:glb.Ndens
@@ -74,7 +79,7 @@ end
 """
     $SIGNATURES
 
-Returns `Λ`.
+Returns `Λ=Σ^{-1}` as sum of individual information matrices (inverse covariances -- i.e. bandwidths).
 
 ```math
 Λ = Σ_i Λ_i
@@ -297,16 +302,20 @@ end
 
 Notes
 -----
-- This function does kernel evaluation internally
-- Does not have a loo skip
-
+- This function does kernel evaluation internally.
+- Does not have a loo skip step.
 """
-function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::Int)#pT::Array{Float64,1}
+function sampleIndices!(X::Array{Float64,1},
+                        cmoi::MSCompOpt,
+                        glb::GbGlb,
+                        frm::Int,
+                        diffop=-  )::Nothing #pT::Array{Float64,1}
   counter=1
   zz=0
   for j in 1:glb.Ndens
     # how many kernels in this density
     dNp = glb.dNpts[j]    #trees[j].Npts();
+    # ?? Total probability -- for normalization
     cmoi.pT = 0.0
 
     # ?? which level of the tree are you?
@@ -314,10 +323,10 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
     for z in 1:dNp
       glb.p[z] = 0.0
 
-      # TODO try refactor as evalKernel on manifold
+      # TODO try refactor as eval kernel on-manifold
       for i in 1:glb.Ndim
-        # TODO X - mean should likely be on manifold
-        tmp = X[i+frm] - mean(glb.trees[j], zz, i)
+        # TODO X - mean should be on manifold
+        tmp = diffop( X[i+frm], mean(glb.trees[j], zz, i) )
         glb.p[z] += (tmp*tmp) / bw(glb.trees[j], zz, i)
         glb.p[z] += Base.log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
       end
@@ -328,8 +337,10 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
     @simd for z in 1:dNp
         glb.p[z] /= cmoi.pT
     end
+
+    # construct CDF and sample a
     @simd for z in 2:dNp
-        glb.p[z] += glb.p[z-1]              # construct CDF and sample a
+        glb.p[z] += glb.p[z-1]
     end
 
     z=1
@@ -349,7 +360,10 @@ function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::I
     counter+=1
     glb.ruptr += 1
   end
-  calcIndices!(glb);                         # recompute particles, variance
+
+  # recompute particles, variance
+  calcIndices!(glb);
+  return nothing
 end
 
 
