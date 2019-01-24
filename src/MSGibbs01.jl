@@ -153,6 +153,8 @@ function gaussianProductMeanCov!(glb::GbGlb,
     destCov[idx] = 1.0/destCov[idx]
     # μ = 1/Λ * Λμ
     destMu[idx] = destCov[idx]*getMu(glb.calcmu, glb.calclambdas)
+    # @show round.(glb.calcmu, digits=3)
+    # @show round(destMu[idx], digits=3)
   end
   nothing
 end

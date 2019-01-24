@@ -2,17 +2,17 @@
 
 # Ball Tree
 
-NO_CHILD = -1 # Maybe do int64(uint32(-1)) ??
-FIELD_NAMES = ["D", "N", "centers", "ranges", "weights",
-            "lower", "upper", "leftch", "rightch", "perm"]
-nfields = 10;
+global NO_CHILD = -1
+# FIELD_NAMES = ["D", "N", "centers", "ranges", "weights",
+#             "lower", "upper", "leftch", "rightch", "perm"]
+# nfields = 10;
 
 mutable struct BallTree
   dims::Int                     # dimension of data
   num_points::Int               # of points
-  centers::Array{Float64,1}       # ball centers, dims numbers per ball
-  ranges::Array{Float64,1}        # bounding box ranges, dims per ball, dist from center to one side
-  weights::Array{Float64,1}       # total weight in each ball
+  centers::Array{Float64,1}     # ball centers, dims numbers per ball
+  ranges::Array{Float64,1}      # bounding box ranges, dims per ball, dist from center to one side
+  weights::Array{Float64,1}     # total weight in each ball
 
   left_child::Array{Int,1}
   right_child::Array{Int,1}     # left, right children; no parent indices
@@ -34,27 +34,17 @@ Npts(bt::BallTree) = bt.num_points
 Npts(bt::BallTree, i::Int) = bt.highest_leaf[i]-bt.lowest_leaf[i]+1
 
 
-## todo make sure these two are working properly -- this is the problem, we are always assigning new memory for each return
-#function center(bt::BallTree, i::Int)
-#    return bt.centers[((i-1)*bt.dims+1):end]
-#end
 center(bt::BallTree, i::Int) = bt.centers[((i-1)*bt.dims+1):end]
 center(bt::BallTree, i::Int, k::Int) = bt.centers[((i-1)*bt.dims+k)]
 
-#function rangeB(bt::BallTree, i::Int)
-#    return bt.ranges[((i-1)*bt.dims+1):end]
-#end
+
 rangeB(bt::BallTree, i::Int) = bt.ranges[((i-1)*bt.dims+1):end]
 rangeB(bt::BallTree, i::Int, k::Int) = bt.ranges[((i-1)*bt.dims+k)]
 
-#function weight(bt::BallTree, i::Int)
-#    return bt.weights[i]
-#end
+
 weight(bt::BallTree, i::Int) = bt.weights[i]
 
-#function isLeaf(bt::BallTree, ind::Int)
-#    return ind >= bt.num_points
-#end
+
 isLeaf(bt::BallTree, ind::Int) = ind >= bt.num_points
 
 validIndex(bt::BallTree, ind::Int) = ((0<ind) && (ind <= 2*bt.num_points))
@@ -109,7 +99,7 @@ function swapBall!(bt::BallTree, _i::Int, _j::Int)
     i+=1
     j+=1
     tmp = bt.centers[i];
-    bt.centers[i]  = bt.centers[j];
+    bt.centers[i] = bt.centers[j];
     bt.centers[j] = tmp;
   end
 end
@@ -220,7 +210,7 @@ function calcStatsBall!(bt::BallTree, root::Int)
       maxi = center(bt, rightI, d) + rangeB(bt, rightI, d)
     end
 
-    if (center(bt, leftI, d) - rangeB(bt, leftI, d) < center(bt, rightI, d) - rangeB(bt, rightI, d))
+    if (center(bt, leftI, d) - rangeB(bt, leftI, d)) < (center(bt, rightI, d) - rangeB(bt, rightI, d))
       mini = center(bt, leftI, d) - rangeB(bt, leftI, d)
     else
       mini = center(bt, rightI, d) - rangeB(bt, rightI, d)
@@ -247,6 +237,7 @@ end
 # Split the leaves along the most spread coordinate, build two balls
 # out of those, and then build a ball around those two children.
 function buildBall!(bt::BallTree, low::Int, high::Int, root::Int)
+  global NO_CHILD
   #println("buildBall! -- (low, high, root)=$((low, high, root))")
   # special case for N=1 trees
   if (low == high)
@@ -314,6 +305,7 @@ end
 # Public method to build the tree, just calls the private method with
 # the proper starting arguments.
 function buildTree!(bt::BallTree)
+  global NO_CHILD
   #println("buildTree!(::BallTree) -- is running")
   i=bt.num_points
   for j in 1:bt.num_points

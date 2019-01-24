@@ -1,6 +1,4 @@
-#not available in Julia 0.3.8, but is in 0.4dev
-#@enum(KernelType,"Gaussian", "Epanetchnikov", "Laplacian")
-#@enum(Gradient,WRTMean, WRTVariance, WRTWeight)
+
 
 struct GaussianKer
     val::Float64
@@ -105,8 +103,12 @@ function swapDensity!(bd::BallTreeDensity, i::Int, j::Int)
     bd.bandwidth[i]  = bd.bandwidth[j];
     bd.bandwidth[j]  = tmp;
     if (!bwUniform(bd))
-      tmp = bd.bandwidthMax[i];bd.bandwidthMax[i]=bd.bandwidthMax[j];bd.bandwidthMax[j]=tmp;
-      tmp = bd.bandwidthMin[i];bd.bandwidthMin[i]=bd.bandwidthMin[j];bd.bandwidthMin[j]=tmp;
+      tmp = bd.bandwidthMax[i];
+      bd.bandwidthMax[i]=bd.bandwidthMax[j];
+      bd.bandwidthMax[j]=tmp;
+      tmp = bd.bandwidthMin[i];
+      bd.bandwidthMin[i]=bd.bandwidthMin[j];
+      bd.bandwidthMin[j]=tmp;
     end
     i+=1
     j+=1
@@ -153,31 +155,11 @@ function calcStatsDensity!(bd, root::Int)
   #switch(type) {
   #  case Gaussian:
     for k in 1:bd.bt.dims
-      #@show k, Ni, NiL, NiR, round([wtL, wtR, wtT],2), round(bd.means[NiL+k],2), round(bd.means[NiR+k],2)
       bd.means[Ni+k]     = wtL * bd.means[NiL+k] + wtR * bd.means[NiR+k];
       bd.bandwidth[Ni+k] = wtL* (bd.bandwidth[NiL+k] + bd.means[NiL+k]*bd.means[NiL+k]) +
-                        wtR* (bd.bandwidth[NiR+k] + bd.means[NiR+k]*bd.means[NiR+k]) -
-                        bd.means[Ni+k]*bd.means[Ni+k];
-      #@show round([bd.means[Ni+k], bd.bandwidth[Ni+k]],2)
+                           wtR* (bd.bandwidth[NiR+k] + bd.means[NiR+k]*bd.means[NiR+k]) -
+                           bd.means[Ni+k]*bd.means[Ni+k];
     end
-  #  break;
-  #case Laplacian:
-  #  for(unsigned int k=0; k < dims; k++) {
-  #    means[Ni+k]     = wtL * means[NiL+k] + wtR * means[NiR+k];
-  #    bandwidth[Ni+k] = wtL* (2*bandwidth[NiL+k]*bandwidth[NiL+k] + means[NiL+k]*means[NiL+k]) +
-  #                      wtR* (2*bandwidth[NiR+k]*bandwidth[NiR+k] + means[NiR+k]*means[NiR+k]) -
-  #                      means[Ni+k]*means[Ni+k];     // compute in terms of variance
-  #    bandwidth[Ni+k] = sqrt(.5*bandwidth[Ni+k]);    //  then convert back to normal BW rep.
-  #  }; break;
-  #case Epanetchnikov:
-  #  for(unsigned int k=0; k < dims; k++) {
-  #    means[Ni+k]     = wtL * means[NiL+k] + wtR * means[NiR+k];
-  #    bandwidth[Ni+k] = wtL* (.2*bandwidth[NiL+k]*bandwidth[NiL+k] + means[NiL+k]*means[NiL+k]) +
-  #                      wtR* (.2*bandwidth[NiR+k]*bandwidth[NiR+k] + means[NiR+k]*means[NiR+k]) -
-  #                     means[Ni+k]*means[Ni+k];     // compute in terms of variance
-  #   bandwidth[Ni+k] = sqrt(5*bandwidth[Ni+k]);     //  then convert back to normal BW rep.
-  #  }; break;
- #}
   return Union{}
 end
 
@@ -317,22 +299,4 @@ function printBallTree(bd::BallTreeDensity, rnd=15)
   @show round.(bd.bandwidthMax,digits=rnd);
 
   nothing
-end
-
-function test02()
-  ## matlab results
-  #centers=[30]=4.4, 3.6, 5, 3.2, 0.18, 2, 5.5, 6.5, 7.5, 2.6, 0.18, 2.5, 0, 0, 0, 1.9, 1.2, 3, 3.3, -0.81, 2, 4.6, -0.56, 1, 4, 5, 6, 7, 8, 9,
-  #weights=[10]=1, 0.6, 0.4, 0.4, 0, 0.2, 0.2, 0.2, 0.2, 0.2,
-  #ranges=[30]=2.6, 4.4, 4, 1.4, 0.98, 1, 1.5, 1.5, 1.5, 0.7, 0.98, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  #highest_leaf=[10]=9, 7, 9, 6, 0, 5, 6, 7, 8, 9,
-  #lowest_leaf=[10]=5, 5, 8, 5, 0, 5, 6, 7, 8, 9,
-  #permutation=[10]=0, 0, 0, 0, 0, 2, 1, 0, 3, 4,
-
-  mus = [[4.6173,    3.2641,    1.8729, 4, 7 ]',
-     [-0.5592,   -0.8088,    1.1610, 5, 8]',
-     [1.,2.,3, 6, 9]']
-
-
-  bd = makeBallTreeDensity(mus, 0.2*ones(5), 0.04*ones(3))
-  printBallTree(bd)
 end
