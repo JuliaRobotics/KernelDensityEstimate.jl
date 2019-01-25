@@ -145,16 +145,19 @@ function gaussianProductMeanCov!(glb::GbGlb,
         glb.calclambdas[z] = 1.0/glb.variance[j+glb.Ndim*(z-1)]
         glb.calcmu[z] = glb.particles[j+glb.Ndim*(z-1)]
       else
+        # adding zeros does not influence the result because `lambda_i = 0` 
         glb.calclambdas[z] = 0.0
         glb.calcmu[z] = 0.0
       end
     end
     destCov[idx] = getLambda(glb.calclambdas)
     destCov[idx] = 1.0/destCov[idx]
-    # μ = 1/Λ * Λμ
-    destMu[idx] = destCov[idx]*getMu(glb.calcmu, glb.calclambdas)
-    # @show round.(glb.calcmu, digits=3)
-    # @show round(destMu[idx], digits=3)
+    # ?? μ = 1/Λ * Λμ
+    # destMu[idx] = destCov[idx]*getMu(glb.calcmu, glb.calclambdas)
+    destMu[idx] = getMu(glb.calcmu, glb.calclambdas)
+    @show round.(glb.calclambdas, digits=3)
+    @show round.(glb.calcmu, digits=3)
+    @show round(destMu[idx], digits=3)
   end
   nothing
 end
@@ -381,11 +384,11 @@ end
 """
     $SIGNATURES
 
-Sample new kernel from leave out density according to multiscale Gibbs sampling.
+Sample new kernel in leave out density according to multiscale Gibbs sampling.
 
 - calculate temporary product of leave in density components (labels previously selected)
-- evaluating the likelihoods of the means from the left out kernels on temporary product
-- select a new label (kernel_i) of the left out density from the mean-likelihoods
+- evaluate the likelihoods of the kernel means from the left out kernel on temporary product
+- randomly select a new label (kernel_i) for left out density according to temporarily evaluated likelihoods
 
 Notes
 -----
@@ -616,6 +619,6 @@ function *(p1::BallTreeDensity, p2::BallTreeDensity)
   # d = Ndim(p1)
   # d != Ndim(p2) ? error("kdes must have same dimension") : nothing
   # dummy = kde!(rand(d,numpts),[1.0]);
-  # pGM, = prodAppxMSGibbsS(dummy, [p1;p2], Union{}, Union{}, Niter=5)
+  # pGM, = prodAppxMSGibbsS(dummy, [p1;p2], nothing, nothing, Niter=5)
   # return kde!(pGM)
 end

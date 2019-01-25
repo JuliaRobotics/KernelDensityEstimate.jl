@@ -59,7 +59,7 @@ p = kde!(randn(2,100))
 q = kde!(2.0+randn(2,100))
 dummy = kde!(rand(2,100),[1.0]);
 mcmciters = 5
-pGM, = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, Niter=mcmciters)
+pGM, = prodAppxMSGibbsS(dummy, [p;q], nothing, nothing, Niter=mcmciters)
 pq = kde!(pGM)
 pq1 = marginal(pq,[1])
 Pl1 = plot([marginal(p,[1]);marginal(q,[1]);marginal(pq,[1])],c=["red";"green";"black"])
@@ -78,7 +78,7 @@ using Distributions
 p = kde!(rand(Beta(1.0,0.45),300));
 q = kde!(rand(Rayleigh(0.5),100)-0.5);
 dummy = kde!(rand(1,100),[1.0]);
-pGM, = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, Niter=5)
+pGM, = prodAppxMSGibbsS(dummy, [p;q], nothing, nothing, Niter=5)
 pq = kde!(pGM)
 plot([p;q;pq],c=["red";"green";"black"])
 ```

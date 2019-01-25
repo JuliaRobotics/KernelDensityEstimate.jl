@@ -28,9 +28,9 @@ function constructBTD(dict::Dict{String, Array{Float64,1}})
   map(t -> round(Int(t)),dict["lowest_leaf"]), # =
   map(t -> round(Int(t)),dict["highest_leaf"]), # =
   map(t -> round(Int(t)),dict["permutation"]), # =
-  0, +, +, Union{} )
+  0, +, +, nothing )
 
-  refbtd = BallTreeDensity(refbt, Union{}, 0,
+  refbtd = BallTreeDensity(refbt, nothing, 0,
   dict["means"], # =
   dict["bandwidth"], # =
   dict["bwMin"],
@@ -168,7 +168,7 @@ function testProds(;D=3,M=6,N=100,n=100, dev=1.0, MCMC=5)
   P = BallTreeDensity[];
   [push!(P, kde!(dev*randn(D,N))) for i in 1:M];
   dummy = kde!(randn(D,n),[1.0]);
-  pGM, = prodAppxMSGibbsS(dummy, P, Union{}, Union{}, Niter=MCMC);
+  pGM, = prodAppxMSGibbsS(dummy, P, nothing, nothing, Niter=MCMC);
   sum(abs, pGM) < 1e-14 ? error("testProds -- prodAppxMSGibbsS, nothing in pGM, len $(length(P))") : nothing
   prodDev = sqrt(dev^(2*M)/(M*(dev^2)))
   T1 = norm(Statistics.mean(pGM,dims=2)) < 1.0*prodDev

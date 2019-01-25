@@ -88,7 +88,7 @@ end
 # Swap the ith leaf with the jth leaf.
 function swapDensity!(bd::BallTreeDensity, i::Int, j::Int)
   if (i==j)
-      return Union{}
+      return nothing
   end
 
   swapBall!(bd.bt,i,j);
@@ -127,7 +127,7 @@ function calcStatsDensity!(bd, root::Int)
   leftI = left(bd.bt, root);
   rightI=right(bd.bt, root);        # get children indices
   if (!validIndex(bd.bt,leftI) || !validIndex(bd.bt, rightI))
-    return Union{}   # nothing to do if this
+    return nothing   # nothing to do if this
   end    #   isn't a parent node
 
   Ni  = bd.bt.dims*(root-1)
@@ -160,7 +160,7 @@ function calcStatsDensity!(bd, root::Int)
                            wtR* (bd.bandwidth[NiR+k] + bd.means[NiR+k]*bd.means[NiR+k]) -
                            bd.means[Ni+k]*bd.means[Ni+k];
     end
-  return Union{}
+  return nothing
 end
 
 
@@ -249,7 +249,7 @@ function movePoints!(bd::BallTreeDensity, delta::Array{Float64,1})
     calcStats!(bd.bt.data, i)                       #   parent nodes
   end
   calcStats!(bd.bt.data, root())                    #   and finally root node
-  return Union{}
+  return nothing
 end
 
 # Assumes newWeights is the right size (num_points)
@@ -262,7 +262,7 @@ function changeWeights!(bd::BallTreeDensity, newWeights::Array{Float64,1})
     calcStats!(bd.bt.data,i)
   end
   calcStats!(bd.bt.data, root());
-  return Union{}
+  return nothing
 end
 
 

@@ -79,7 +79,7 @@ function swapBall!(bt::BallTree, _i::Int, _j::Int)
   j = _j
   tmp = 0.
   if (i==j)
-    return Union{}
+    return nothing
   end
 
   # swap weights
@@ -178,7 +178,7 @@ function select!(bt::BallTree, dimension::Int, position::Int, low::Int, high::In
     if (m <= position) low=m+1 end
     if (m >= position) high=m-1 end
   end
-  return Union{}
+  return nothing
 end
 
 
@@ -191,11 +191,14 @@ function calcStatsBall!(bt::BallTree, root::Int)
   NiR = 0
   d = 0
 
+  # get children indices
   leftI = left(bt, root)
-  rightI=right(bt, root);   # get children indices
+  rightI=right(bt, root)
+
+  # nothing to do if this isn't a parent node
   if (!(validIndex(bt, leftI)) || !(validIndex(bt, rightI)))
-    return Union{} # nothing to do if this
-  end           #   isn't a parent node
+    return nothing
+  end
 
   # figure out the center and ranges of this ball based on it's children
   maxi = 0.
@@ -229,7 +232,7 @@ function calcStatsBall!(bt::BallTree, root::Int)
   else
     bt.weights[root] = bt.weights[leftI]
   end
-  return Union{}
+  return nothing
 end
 
 
@@ -250,7 +253,7 @@ function buildBall!(bt::BallTree, low::Int, high::Int, root::Int)
     bt.right_child[root] = high;
     calcStats!(bt.data, root)
     bt.right_child[root] = NO_CHILD;
-    return Union{}
+    return nothing
   end
 
   #BallTree::index coord, split, left, right;
@@ -299,7 +302,7 @@ function buildBall!(bt::BallTree, low::Int, high::Int, root::Int)
   end
 
   calcStats!(bt.data, root);
-  return Union{}
+  return nothing
 end
 
 # Public method to build the tree, just calls the private method with
@@ -322,7 +325,7 @@ function buildTree!(bt::BallTree)
   bt.next = 2
 
   buildBall!(bt, bt.num_points+1, 2*bt.num_points, 1); # chgd for indexing 1
-  return Union{}
+  return nothing
 end
 
 # New BallTree
@@ -359,7 +362,7 @@ function printBallTree(bt::BallTree)
     @show bt.highest_leaf;
     @show bt.lowest_leaf;
     @show bt.permutation;
-    return Union{}
+    return nothing
 end
 
 function test01()
