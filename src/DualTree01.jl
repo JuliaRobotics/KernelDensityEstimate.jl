@@ -318,13 +318,13 @@ function makeDualTree(bd1::BallTreeDensity, bd2::BallTreeDensity, errTol::Float6
     return pRes
 end
 
-function evaluateDualTree(bd::BallTreeDensity, pos::Array{Float64,2}, lvFlag::Bool=false, errTol::Float64=1e-3)
+function evaluateDualTree(bd::BallTreeDensity, pos::Array{Float64,2}, lvFlag::Bool=false, errTol::Float64=1e-3, addop=+, diffop=-)
     #dim = size(pos,1)
     if (bd.bt.dims != size(pos,1)) error("bd and pos must have the same dimension") end
     if (lvFlag)
         p = makeDualTree(bd, errTol)
     else
-      posKDE = makeBallTreeDensity(pos, ones(size(pos,2))./size(pos,2));
+      posKDE = makeBallTreeDensity(pos, ones(size(pos,2))./size(pos,2), GaussianKer, addop, diffop);
       p = makeDualTree(bd,posKDE,errTol)
     end
     return p
