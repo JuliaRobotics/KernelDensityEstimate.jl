@@ -65,7 +65,7 @@ function swap!(data, _i::Int, _j::Int)
 end
 function calcStats!(data, root::Int, addop=+, diffop=-)
   #@show "Fancy calcStats"
-  return data.calcStatsHandle(data, root) # , addop, diffop
+  return data.calcStatsHandle(data, root , addop, diffop )
 end
 
 
@@ -258,13 +258,13 @@ function buildBall!(bt::BallTree,
     # point right child to the same as left for calc stats, and then
     # point it to the correct NO_CHILD afterwards.  kinda kludgey
     bt.right_child[root] = high;
-    calcStats!(bt.data, root)
+    calcStats!(bt.data, root, addop, diffop)
     bt.right_child[root] = NO_CHILD;
     return nothing
   end
 
   #BallTree::index coord, split, left, right;
-  coord = most_spread_coord(bt, low, high); # find dimension of widest spread
+  coord = most_spread_coord(bt, low, high, addop, diffop); # find dimension of widest spread
 
   # split the current leaves into two groups, to build balls on them.
   # Choose the most spread coordinate to split them on, and make sure
@@ -302,13 +302,13 @@ function buildBall!(bt::BallTree,
 
   # build sub-trees if necessary
   if(left != low)
-    buildBall!(bt, low, split, left)
+    buildBall!(bt, low, split, left, addop, diffop)
   end
   if(right != high)
-    buildBall!(bt, split+1, high, right)
+    buildBall!(bt, split+1, high, right, addop, diffop)
   end
 
-  calcStats!(bt.data, root);
+  calcStats!(bt.data, root, addop, diffop);
   return nothing
 end
 
@@ -331,7 +331,7 @@ function buildTree!(bt::BallTree, addop=+, diffop=-)
   end
   bt.next = 2
 
-  buildBall!(bt, bt.num_points+1, 2*bt.num_points, 1); # chgd for indexing 1
+  buildBall!(bt, bt.num_points+1, 2*bt.num_points, 1, addop, diffop)
   return nothing
 end
 
@@ -359,7 +359,7 @@ function makeBallTree(_pointsMatrix::Array{Float64,2},
   bt.data = bt
 
   if (Np > 0 && suppressBuildTree!=true)
-    buildTree!(bt)
+    buildTree!(bt, addop, diffop)
   end
   return bt
 end
