@@ -372,7 +372,7 @@ end
 
 
 function *(pp::Vector{BallTreeDensity})
-  numpts = round(Int, Base.mean(Npts.(pp)))
+  numpts = round(Int, Statistics.mean(Npts.(pp)))
   d = Ndim(pp[1])
   for p in pp
     d != Ndim(p) ? error("kdes must have same dimension") : nothing
