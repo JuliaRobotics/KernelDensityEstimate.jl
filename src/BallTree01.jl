@@ -63,9 +63,9 @@ getIndexOf(bt::BallTree, i::Int) = bt.permutation[i]
 function swap!(data, _i::Int, _j::Int)
   return data.swapHandle(data, _i, _j)
 end
-function calcStats!(data, root::Int)
+function calcStats!(data, root::Int, addop=+, diffop=-)
   #@show "Fancy calcStats"
-  return data.calcStatsHandle(data, root)
+  return data.calcStatsHandle(data, root , addop, diffop )
 end
 
 
@@ -106,7 +106,7 @@ end
 
 # Find the dimension along which the leaves between low and high
 # inclusive have the greatest variance
-function  most_spread_coord(bt::BallTree, low::Int, high::Int)
+function  most_spread_coord(bt::BallTree, low::Int, high::Int, addop=+, diffop=-)
   #BallTree::index dimension, point, max_dim;
   #double mean, variance, max_variance;
   #println("most_spread_coord -- low, high = $((low, high))")
@@ -116,13 +116,15 @@ function  most_spread_coord(bt::BallTree, low::Int, high::Int)
   for dimension = 1:bt.dims
     mean = 0
     for point = (bt.dims*(low-1) + dimension):bt.dims:(bt.dims*(high-1))
-      mean += bt.centers[point]
+      mean = addop(mean, bt.centers[point])
     end
+
+    # TODO: ensure this operation stays on-manifold for general cases
     mean /= (high - low)
 
     variance = 0
     for point in (bt.dims*(low-1) + dimension):bt.dims:(bt.dims*(high-1))
-      variance += (bt.centers[point] - mean) * (bt.centers[point] - mean);
+      variance += (diffop(bt.centers[point], mean))^2 # * (bt.centers[point] - mean);
     end
     if (variance > max_variance)
       max_variance = variance;
@@ -184,7 +186,7 @@ end
 
 # Calculate the statistics of level "root" based on the statistics of
 #   its left and right children.
-function calcStatsBall!(bt::BallTree, root::Int)
+function calcStatsBall!(bt::BallTree, root::Int, addop=+, diffop=-)
   #println("calcStatsBall! -- root=$(root)")
   Ni = 0
   NiL = 0
@@ -204,24 +206,24 @@ function calcStatsBall!(bt::BallTree, root::Int)
   maxi = 0.
   mini = 0.
   for d=1:bt.dims
-    a = center(bt, leftI, d) + rangeB(bt, leftI, d)
-    b = center(bt, rightI, d) + rangeB(bt, rightI, d)
+    a = addop( center(bt, leftI, d), rangeB(bt, leftI, d) )
+    b = addop( center(bt, rightI, d), rangeB(bt, rightI, d) )
     #@show (d, leftI, rightI, a, b)
     if (a > b)
-      maxi = center(bt, leftI, d) + rangeB(bt, leftI, d)
+      maxi = addop( center(bt, leftI, d), rangeB(bt, leftI, d) )
     else
-      maxi = center(bt, rightI, d) + rangeB(bt, rightI, d)
+      maxi = addop( center(bt, rightI, d), rangeB(bt, rightI, d) )
     end
 
-    if (center(bt, leftI, d) - rangeB(bt, leftI, d)) < (center(bt, rightI, d) - rangeB(bt, rightI, d))
-      mini = center(bt, leftI, d) - rangeB(bt, leftI, d)
+    if diffop(center(bt, leftI, d), rangeB(bt, leftI, d)) < diffop(center(bt, rightI, d), rangeB(bt, rightI, d))
+      mini = diffop( center(bt, leftI, d), rangeB(bt, leftI, d) )
     else
-      mini = center(bt, rightI, d) - rangeB(bt, rightI, d)
+      mini = diffop( center(bt, rightI, d), rangeB(bt, rightI, d) )
     end
 
     #@show (d, mini,maxi);
-    bt.centers[(root-1)*bt.dims+d] = (maxi+mini) / 2.0;
-    bt.ranges[(root-1)*bt.dims+d] = (maxi-mini) / 2.0;
+    bt.centers[(root-1)*bt.dims+d] = addop(maxi, mini) / 2.0;
+    bt.ranges[(root-1)*bt.dims+d] = diffop(maxi, mini) / 2.0;
   end
 
   # if the left ball is the same as the right ball (should only
@@ -239,7 +241,12 @@ end
 # Given the leaves, build the rest of the tree from the top down.
 # Split the leaves along the most spread coordinate, build two balls
 # out of those, and then build a ball around those two children.
-function buildBall!(bt::BallTree, low::Int, high::Int, root::Int)
+function buildBall!(bt::BallTree,
+                    low::Int,
+                    high::Int,
+                    root::Int,
+                    addop=+,
+                    diffop=- )
   global NO_CHILD
   #println("buildBall! -- (low, high, root)=$((low, high, root))")
   # special case for N=1 trees
@@ -251,13 +258,13 @@ function buildBall!(bt::BallTree, low::Int, high::Int, root::Int)
     # point right child to the same as left for calc stats, and then
     # point it to the correct NO_CHILD afterwards.  kinda kludgey
     bt.right_child[root] = high;
-    calcStats!(bt.data, root)
+    calcStats!(bt.data, root, addop, diffop)
     bt.right_child[root] = NO_CHILD;
     return nothing
   end
 
   #BallTree::index coord, split, left, right;
-  coord = most_spread_coord(bt, low, high); # find dimension of widest spread
+  coord = most_spread_coord(bt, low, high, addop, diffop); # find dimension of widest spread
 
   # split the current leaves into two groups, to build balls on them.
   # Choose the most spread coordinate to split them on, and make sure
@@ -295,19 +302,19 @@ function buildBall!(bt::BallTree, low::Int, high::Int, root::Int)
 
   # build sub-trees if necessary
   if(left != low)
-    buildBall!(bt, low, split, left)
+    buildBall!(bt, low, split, left, addop, diffop)
   end
   if(right != high)
-    buildBall!(bt, split+1, high, right)
+    buildBall!(bt, split+1, high, right, addop, diffop)
   end
 
-  calcStats!(bt.data, root);
+  calcStats!(bt.data, root, addop, diffop);
   return nothing
 end
 
 # Public method to build the tree, just calls the private method with
 # the proper starting arguments.
-function buildTree!(bt::BallTree)
+function buildTree!(bt::BallTree, addop=+, diffop=-)
   global NO_CHILD
   #println("buildTree!(::BallTree) -- is running")
   i=bt.num_points
@@ -324,12 +331,16 @@ function buildTree!(bt::BallTree)
   end
   bt.next = 2
 
-  buildBall!(bt, bt.num_points+1, 2*bt.num_points, 1); # chgd for indexing 1
+  buildBall!(bt, bt.num_points+1, 2*bt.num_points, 1, addop, diffop)
   return nothing
 end
 
 # New BallTree
-function makeBallTree(_pointsMatrix::Array{Float64,2}, _weights::Array{Float64,1}, suppressBuildTree=false)
+function makeBallTree(_pointsMatrix::Array{Float64,2},
+                      _weights::Array{Float64,1},
+                      suppressBuildTree=false,
+                      addop=+,
+                      diffop=-  )
   # get fields from input arguments
   Nd = size(_pointsMatrix,1);
   Np = size(_pointsMatrix,2);
@@ -348,7 +359,7 @@ function makeBallTree(_pointsMatrix::Array{Float64,2}, _weights::Array{Float64,1
   bt.data = bt
 
   if (Np > 0 && suppressBuildTree!=true)
-    buildTree!(bt)
+    buildTree!(bt, addop, diffop)
   end
   return bt
 end

@@ -79,9 +79,9 @@ bwUniform(bd::BallTreeDensity) = bd.multibandwidth==0
 
 root(bd::BallTreeDensity) = root()
 
-function buildTree!(bd::BallTreeDensity)
+function buildTree!(bd::BallTreeDensity, addop=+, diffop=-)
   #println("buildTree!(::BallTreeDensity)")
-  buildTree!(bd.bt)
+  buildTree!(bd.bt, addop, diffop)
   nothing
 end
 
@@ -115,9 +115,9 @@ function swapDensity!(bd::BallTreeDensity, i::Int, j::Int)
   end
 end
 
-function calcStatsDensity!(bd, root::Int)
+function calcStatsDensity!(bd, root::Int, addop=+, diffop=-)
   #println("calcStatsDensity! -- is running")
-  calcStatsBall!(bd.bt, root)
+  calcStatsBall!(bd.bt, root, addop, diffop)
 
   k = 0
   wtL=0.
@@ -166,9 +166,14 @@ end
 
 
 # Create new matlab arrays and put them in the given structure
-function makeBallTreeDensity(_pointsMatrix::Array{Float64,2}, _weightsMatrix::Array{Float64,1}, _bwMatrix::Array{Float64,1}, _type::DataType=GaussianKer)
-
-  bt = makeBallTree(_pointsMatrix, _weightsMatrix, true)
+function makeBallTreeDensity(_pointsMatrix::Array{Float64,2},
+                             _weightsMatrix::Array{Float64,1},
+                             _bwMatrix::Array{Float64,1},
+                             _type::DataType=GaussianKer,
+                             addop=+,
+                             diffop=-  )
+  #
+  bt = makeBallTree(_pointsMatrix, _weightsMatrix, true, addop, diffop)
   bt.calcStatsHandle = calcStatsDensity!
   bt.swapHandle = swapDensity!
 
@@ -202,15 +207,26 @@ function makeBallTreeDensity(_pointsMatrix::Array{Float64,2}, _weightsMatrix::Ar
   return bd
 end
 
-function makeBallTreeDensity(_pointsMatrix::Array{Float64,2}, _weightsMatrix::Array{Float64,1}, _type::DataType=GaussianKer)
-  makeBallTreeDensity(_pointsMatrix, _weightsMatrix, ones(size(_pointsMatrix,1)), _type)
+function makeBallTreeDensity(_pointsMatrix::Array{Float64,2},
+                             _weightsMatrix::Array{Float64,1},
+                             _type::DataType=GaussianKer,
+                             addop=+,
+                             diffop=-  )
+  makeBallTreeDensity(_pointsMatrix, _weightsMatrix, ones(size(_pointsMatrix,1)), _type, addop, diffop)
 end
 
 
 # Figure out which of two children in this tree is closest to a given
 # ball in another tree.  Returns the index in this tree of the closer
 # child.
-function closer!(bd::BallTreeDensity, myLeft::Int, myRight::Int, otherTree::BallTreeDensity, otherRoot::Int)
+function closer!(bd::BallTreeDensity,
+                 myLeft::Int,
+                 myRight::Int,
+                 otherTree::BallTreeDensity,
+                 otherRoot::Int,
+                 addop=+,
+                 diffop=-  )
+  #
   if (myRight==NO_CHILD || otherRoot==NO_CHILD)
     return myLeft
   end
@@ -218,10 +234,10 @@ function closer!(bd::BallTreeDensity, myLeft::Int, myRight::Int, otherTree::Ball
   dist_sq_r = 0.0
   #@fastmath @inbounds begin
     for i in 1:bd.bt.dims
-      dist_sq_l += (center(otherTree.bt, otherRoot, i) - center(bd.bt, myLeft, i)) *
-        (center(otherTree.bt, otherRoot, i) - center(bd.bt, myLeft, i));
-      dist_sq_r += (center(otherTree.bt, otherRoot, i) - center(bd.bt, myRight, i)) *
-        (center(otherTree.bt, otherRoot, i) - center(bd.bt, myRight, i));
+      dist_sq_l = addop(dist_sq_l, diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i)) *
+        diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i)));
+      dist_sq_r = addop(dist_sq_r, diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i)) *
+        diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i)));
     end
   #end
 
@@ -232,23 +248,27 @@ function closer!(bd::BallTreeDensity, myLeft::Int, myRight::Int, otherTree::Ball
   end
 end
 
-function closer!(bd::BallTreeDensity, i::Int, j::Int, other_tree::BallTreeDensity)
-  return closer!(bd,i,j,other_tree,root()) #othertree.root() = 1 anyway
+function closer!(bd::BallTreeDensity, i::Int, j::Int, other_tree::BallTreeDensity, addop=+, diffop=-)
+  return closer!(bd, i, j, other_tree, root(), addop, diffop) #othertree.root() = 1 anyway
 end
 
 # Perform a *slight* adjustment of the tree: move the points by delta, but
 #   don't reform the whole tree; just fix up the statistics.
 #
-function movePoints!(bd::BallTreeDensity, delta::Array{Float64,1})
+function movePoints!(bd::BallTreeDensity,
+                     delta::Array{Float64,1},
+                     addop=+,
+                     diffop=- )
+  #
   for i in leafFirst(bd,root()):leafLast(bd,root())
     for k in 1:bt.dims                      # first adjust locations by delta
-      bd.bt.centers[bd.bt.dims*(i-1)+k] += delta[ (getIndexOf(bd,i)-1)*bd.bt.dims + k ];
+      bd.bt.centers[bd.bt.dims*(i-1)+k] = addop( bd.bt.centers[bd.bt.dims*(i-1)+k], delta[ (getIndexOf(bd,i)-1)*bd.bt.dims + k ] );
     end
   end
   for i in bd.bt.num_points:-1:1               # then recompute stats of
-    calcStats!(bd.bt.data, i)                       #   parent nodes
+    calcStats!(bd.bt.data, i, addop, diffop)                       #   parent nodes
   end
-  calcStats!(bd.bt.data, root())                    #   and finally root node
+  calcStats!(bd.bt.data, root(), addop, diffop)                    #   and finally root node
   return nothing
 end
 

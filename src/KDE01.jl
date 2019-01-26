@@ -1,4 +1,9 @@
-function kde!(points::A, ks::Array{Float64,1}, weights::Array{Float64,1}) where {A <: AbstractArray{Float64,2}}
+function kde!(points::A,
+              ks::Array{Float64,1},
+              weights::Array{Float64,1},
+              addop=+,
+              diffop=-  ) where {A <: AbstractArray{Float64,2}}
+  #
   Nd, Np = size(points)
   if (length(ks) == 1)
     ks = repeat(ks,Nd)
@@ -8,7 +13,7 @@ function kde!(points::A, ks::Array{Float64,1}, weights::Array{Float64,1}) where 
   weights = weights./sum(weights);
   #bwsize = length(ks);
 
-  makeBallTreeDensity(points,weights,ks)
+  makeBallTreeDensity(points, weights, ks, GaussianKer, addop, diffop)
 
   #if (length())
 end
@@ -18,18 +23,18 @@ end
 
 Construct a BallTreeDensity object using `points` for centers and bandwidth `ks`.
 """
-function kde!(points::A, ks::Array{Float64,1}) where {A <: AbstractArray{Float64,2}}
+function kde!(points::A, ks::Array{Float64,1}, addop=+, diffop=-) where {A <: AbstractArray{Float64,2}}
   Nd, Np = size(points)
   weights = ones(Np)
-  kde!(points, ks, weights)
+  kde!(points, ks, weights, addop, diffop)
 end
 
-function kde!(points::Array{Float64,1}, ks::Array{Float64,1})
+function kde!(points::Array{Float64,1}, ks::Array{Float64,1}, addop=+, diffop=-)
   Np = length(points)
   pts = zeros(1,Np)
   pts[1,:] = points
   weights = ones(Np)
-  kde!(pts, ks, weights)
+  kde!(pts, ks, weights, addop, diffop)
 end
 
 """
