@@ -145,7 +145,7 @@ function gaussianProductMeanCov!(glb::GbGlb,
         glb.calclambdas[z] = 1.0/glb.variance[j+glb.Ndim*(z-1)]
         glb.calcmu[z] = glb.particles[j+glb.Ndim*(z-1)]
       else
-        # adding zeros does not influence the result because `lambda_i = 0` 
+        # adding zeros does not influence the result because `lambda_i = 0`
         glb.calclambdas[z] = 0.0
         glb.calcmu[z] = 0.0
       end
@@ -153,11 +153,11 @@ function gaussianProductMeanCov!(glb::GbGlb,
     destCov[idx] = getLambda(glb.calclambdas)
     destCov[idx] = 1.0/destCov[idx]
     # ?? μ = 1/Λ * Λμ
-    # destMu[idx] = destCov[idx]*getMu(glb.calcmu, glb.calclambdas)
-    destMu[idx] = getMu(glb.calcmu, glb.calclambdas)
-    @show round.(glb.calclambdas, digits=3)
-    @show round.(glb.calcmu, digits=3)
-    @show round(destMu[idx], digits=3)
+    destMu[idx] = destCov[idx]*getMu(glb.calcmu, glb.calclambdas)
+    # destMu[idx] = getMu(glb.calcmu, glb.calclambdas)
+    # @show round.(glb.calclambdas, digits=3)
+    # @show round.(glb.calcmu, digits=3)
+    # @show round(destMu[idx], digits=3)
   end
   nothing
 end
@@ -603,7 +603,7 @@ end
 
 
 function *(pp::Vector{BallTreeDensity})
-  numpts = round(Int, Base.mean(Npts.(pp)))
+  numpts = round(Int, Statistics.mean(Npts.(pp)))
   d = Ndim(pp[1])
   for p in pp
     d != Ndim(p) ? error("kdes must have same dimension") : nothing
