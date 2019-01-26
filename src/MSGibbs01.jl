@@ -22,6 +22,10 @@ mutable struct GbGlb
     dNpts::Array{Int,1}
     ruptr::Int
     rnptr::Int
+    mn::Vector{Float64}
+    vn::Vector{Float64}
+    calclambdas::Vector{Float64}
+    calcmu::Vector{Float64}
 end
 
 function makeEmptyGbGlb()
@@ -41,7 +45,9 @@ function makeEmptyGbGlb()
                 ones(Int,1,0),
                 ones(Int,1,0),
                 zeros(Int,0),
-                0, 0)
+                0, 0,
+                Float64[0.0;], Float64[0.0;],
+                zeros(0), zeros(0)  )
 end
 
 
@@ -51,6 +57,168 @@ mutable struct MSCompOpt
   tmpM::Float64
 end
 
+## funcions related to Gaussian product
+
+"""
+    $SIGNATURES
+
+Recompute particles, variance.
+"""
+function calcIndices!(glb::GbGlb)::Nothing
+  @fastmath @inbounds begin
+    for j in 1:glb.Ndens
+      for z in 1:glb.Ndim
+        glb.particles[z+glb.Ndim*(j-1)] = mean(glb.trees[j],glb.ind[j], z);
+        glb.variance[z+glb.Ndim*(j-1)]  = bw(glb.trees[j],glb.ind[j], z);
+      end
+    end
+  end
+  nothing
+end
+
+"""
+    $SIGNATURES
+
+Returns `Λ=Σ^{-1}` as sum of individual information matrices (inverse covariances -- i.e. bandwidths).
+
+```math
+Λ = Σ_i Λ_i
+```
+"""
+getEuclidLambda(lambdas::Vector{Float64})::Float64 = sum(lambdas)
+
+"""
+    $SIGNATURES
+
+Returns `Λμ`.
+
+```math
+Λμ = Σ_i (Λ_i*μ_i)
+```
+"""
+function getEuclidMu(mus::Vector{Float64}, lambdas::Vector{Float64}, scale::Float64=1.0)
+  lambdamu = 0.0
+  for z in 1:length(mus)
+    lambdamu += mus[z]*lambdas[z]
+  end
+  return scale*lambdamu
+end
+
+
+"""
+    $SIGNATURES
+
+Multiplication of Gaussians using leave in densities (if skip `skip` > 0).  For on-manifold operations, set `getMu` and `getLambda` operations accordingly.
+
+Notes
+-----
+- Used twice in samplePoint! (won't skip) and sampleIndex (will skip LOO).
+- Assumes manifold `diffop` baked into `getMu`.
+- use `j`th dimension
+"""
+function gaussianProductMeanCov!(glb::GbGlb,
+                                 j::Int,
+                                 destMu::Vector{Float64},
+                                 destCov::Vector{Float64},
+                                 idx::Int,
+                                 skip::Int,
+                                 addop=+,  # currently not required -- baked into getMu
+                                 getMu::Function=getEuclidMu,
+                                 getLambda::Function=getEuclidLambda  )::Nothing
+  destMu[idx] = 0.0;
+  destCov[idx] = 0.0;
+  # Compute mean and variances (product) of selected particles
+  if false
+    @inbounds @fastmath @simd for z in 1:glb.Ndens
+      if (z!=skip)
+        # TODO: change to on-manifold operation
+        destCov[idx] += 1.0/glb.variance[j+glb.Ndim*(z-1)]
+        destMu[idx] = addop(destMu[idx], glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)])
+      end
+    end
+    destCov[idx] = 1.0/destCov[idx];
+    destMu[idx] *= destCov[idx];
+  else
+    # on manifold development
+    @inbounds @fastmath @simd for z in 1:glb.Ndens
+      if (z!=skip)
+        glb.calclambdas[z] = 1.0/glb.variance[j+glb.Ndim*(z-1)]
+        glb.calcmu[z] = glb.particles[j+glb.Ndim*(z-1)]
+      else
+        # adding zeros does not influence the result because `lambda_i = 0`
+        glb.calclambdas[z] = 0.0
+        glb.calcmu[z] = 0.0
+      end
+    end
+    destCov[idx] = getLambda(glb.calclambdas)
+    destCov[idx] = 1.0/destCov[idx]
+    # ?? μ = 1/Λ * Λμ
+    destMu[idx] = getMu(glb.calcmu, glb.calclambdas, destCov[idx])
+    # destMu[idx] = destCov[idx]*getMu(glb.calcmu, glb.calclambdas)
+    # destMu[idx] = getMu(glb.calcmu, glb.calclambdas)
+    # @show round.(glb.calclambdas, digits=3)
+    # @show round.(glb.calcmu, digits=3)
+    # @show round(destMu[idx], digits=3)
+  end
+  nothing
+end
+
+
+"""
+    $SIGNATURES
+
+Calculate the likelihoods of left out kernel means (label_i's) against Normal distribution with mean `glb.Malmost` and variance `glb.Calmost` -- we think ...
+
+Assumes
+-------
+
+Temporary product gaussian on manifold has already been computed and stored in `glb.Calmost` and `glb.Malmost`.
+
+Notes
+-----
+
+- Incoming temporary product mean is `glb.Malmost` and covariance `glb.Calmost`.
+- `j` is the left out density -- i.e. the density for which we want to select a new label (kernel)
+- `cmo.tmpM` is the manifold difference from all dimensions prior to evaluating Gaussian pdf, and relates to levels of the k-d tree...
+- `z` is index of leave one out density kernels -- i.e. evaluate likelihood of each kernel mean `glb.p[z] = p(μ_z)`
+- New kernel will be selected randomly from likelihood weights in `glb.p[z:z]`.
+
+Potential Concerns
+------------------
+
+- Make sure tmpC can happen on Euclidean vs user manifold
+"""
+function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb, diffop=-)
+  ## SLOWEST PIECE OF THE COMPUTATION -- TODO
+  # easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations...
+  cmo.tmpC = 0.0
+  cmo.tmpM = 0.0
+
+  zz=glb.levelList[j,1]
+  # iterate over kernels in the left out density
+  for z in 1:(glb.dNpts[j])
+    glb.p[z] = 0.0
+    # compute mean `cmo.tmpM` and covariance `cmo.tmpC` across all KDE dimensions.
+    for i in 1:glb.Ndim
+      # NOTE make sure tmpC can be calculated on linear (Euclidean) manifold
+      cmo.tmpC = bw(glb.trees[j], zz, i) + glb.Calmost[i]
+      # Note on-manifold differencing operation
+      cmo.tmpM = diffop(mean(glb.trees[j], zz, i), glb.Malmost[i])
+      # This is the slowest piece
+      glb.p[z] += abs2(cmo.tmpM)/cmo.tmpC + log(cmo.tmpC)
+    end
+    # final stage in Gaussian kernel evaluation
+    @fastmath glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz) # slowest piece
+    #
+    z < glb.dNpts[j] ? (zz = glb.levelList[j,(z+1)]) : nothing
+  end
+
+  nothing
+end
+
+
+## Level and sampling operations
+
 function levelInit!(glb::GbGlb)
   for j in 1:glb.Ndens
     glb.dNpts[j] = 1
@@ -58,7 +226,6 @@ function levelInit!(glb::GbGlb)
   end
 end
 
-# this is a weird function -- not tested at all at this point
 function initIndices!(glb::GbGlb)
   count=1
   for j in 1:glb.Ndens
@@ -87,33 +254,31 @@ function initIndices!(glb::GbGlb)
   end
 end
 
-function calcIndices!(glb::GbGlb)
-  @fastmath @inbounds begin
-    for j in 1:glb.Ndens
-      for z in 1:glb.Ndim
-        glb.particles[z+glb.Ndim*(j-1)] = mean(glb.trees[j],glb.ind[j], z)#[z];
-        glb.variance[z+glb.Ndim*(j-1)]  = bw(glb.trees[j],glb.ind[j], z);
-      end
-    end
-  end
-end
+"""
+    $SIGNATURES
 
-function samplePoint!(X::Array{Float64,1}, glb::GbGlb, frm::Int)
+Sampling a point from the product of kernels (density components) listed in `glb.variance` and `glb.particles` without skipping a kernel (not a leave-one-out case).
+
+Manifold defined by `addop`, `getMu`, and `getLambda`.
+"""
+function samplePoint!(X::Array{Float64,1},
+                      glb::GbGlb,
+                      frm::Int,
+                      addop=+,
+                      getMu::Function=getEuclidMu,
+                      getLambda::Function=getEuclidLambda )::Nothing
   #counter = 1
   for j in 1:glb.Ndim
-    mn=0.0; vn=0.0;
-    for z in 1:glb.Ndens                             # Compute mean and variances of
-      vn += 1.0/glb.variance[j+glb.Ndim*(z-1)]       #   product of selected particles
-      mn += glb.particles[j+glb.Ndim*(z-1)]/glb.variance[j+glb.Ndim*(z-1)]
-    end
-    vn = 1.0/vn; mn *= vn;
+    # Calculate on-manifold mean and covariance.  Does not skip a density here -- i.e. skip = -1;  see `sampleIndex(...)`
+    gaussianProductMeanCov!(glb, j, glb.mn, glb.vn, 1, -1, addop, getMu, getLambda ) # getMeanCovDens!
+    # then draw a sample from it
     glb.rnptr += 1
-    X[j+frm] = mn + sqrt(vn) * glb.randN[glb.rnptr] #counter       # then draw a sample from it
+    X[j+frm] = addop(glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] ) #counter
   end
-  return Union{}
+  return nothing
 end
 
-function levelDown!(glb::GbGlb)
+function levelDown!(glb::GbGlb)::Nothing
   for j in 1:glb.Ndens
     z = 1
     for y in 1:(glb.dNpts[j])
@@ -132,91 +297,124 @@ function levelDown!(glb::GbGlb)
     glb.dNpts[j] = z-1
   end
   tmp = glb.levelList                            # make new list the current
-  glb.levelList = glb.levelListNew              #   list and recycle the old
+  glb.levelList = glb.levelListNew               #   list and recycle the old
   glb.levelListNew=tmp
+  nothing
 end
 
-function sampleIndices!(X::Array{Float64,1}, cmoi::MSCompOpt, glb::GbGlb, frm::Int)#pT::Array{Float64,1}
+"""
+    $SIGNATURES
+
+??
+
+Notes
+-----
+- This function does kernel evaluation internally.
+- Does not have a loo skip step.
+"""
+function sampleIndices!(X::Array{Float64,1},
+                        cmoi::MSCompOpt,
+                        glb::GbGlb,
+                        frm::Int,
+                        diffop=-  )::Nothing #pT::Array{Float64,1}
+  #
+
+  # calculate likelihood of all kernel means
   counter=1
   zz=0
   for j in 1:glb.Ndens
+    # how many kernels in this density
     dNp = glb.dNpts[j]    #trees[j].Npts();
+    # Total probability -- for normalization
     cmoi.pT = 0.0
 
+    # ?? which level of the tree are you?
     zz=glb.levelList[j,1]
     for z in 1:dNp
       glb.p[z] = 0.0
+
+      # TODO try refactor as eval kernel on-manifold
       for i in 1:glb.Ndim
-        tmp = X[i+frm] - mean(glb.trees[j], zz, i)#[i]
-        glb.p[z] += (tmp*tmp) / bw(glb.trees[j], zz, i)#[i]
-        glb.p[z] += Base.log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
+        # Note mean is on manifold
+        tmp = diffop( X[i+frm], mean(glb.trees[j], zz, i) )
+        glb.p[z] += (tmp*tmp) / bw(glb.trees[j], zz, i)
+        glb.p[z] += log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
       end
+      # final step in calculating Gaussian kernel
       glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j], zz)
       cmoi.pT += glb.p[z]
       zz = z<dNp ? glb.levelList[j,z+1] : zz
     end
+
+    # Normalize the new probabilty for selecting a new kernel
     @simd for z in 1:dNp
         glb.p[z] /= cmoi.pT
     end
+
+    # construct CDF for sampling a new kernel
     @simd for z in 2:dNp
-        glb.p[z] += glb.p[z-1]              # construct CDF and sample a
+        glb.p[z] += glb.p[z-1]
     end
 
+    # sample a new kernel from CDF
     z=1
     zz=glb.levelList[j,z]
     while z<=(dNp-1)
-      if (glb.randU[glb.ruptr] <= glb.p[z]) # counter
-        break;                              # new kernel from jth density
+      if (glb.randU[glb.ruptr] <= glb.p[z])
+        # Selected a new kernel (`z`) from the `j`th density
+        break;
       end
       z+=1
       if z<=dNp
         zz=glb.levelList[j,z]
       else
-        error("This should never happend due to -1 MSGibbs01.jl")
+        error("This should never happen due to -1")
       end
     end
     glb.ind[j] = zz
     counter+=1
-    glb.ruptr += 1
-  end
-  calcIndices!(glb);                         # recompute particles, variance
-end
-
-## SLOWEST PIECE OF THE COMPUTATION -- TODO
-# easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations...
-function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb)
-  cmo.tmpC = 0.0
-  cmo.tmpM = 0.0
-
-  zz=glb.levelList[j,1]
-  for z in 1:(glb.dNpts[j])
-    glb.p[z] = 0.0
-    for i in 1:glb.Ndim
-      cmo.tmpC = bw(glb.trees[j], zz, i) + glb.Calmost[i]
-      cmo.tmpM = mean(glb.trees[j], zz, i) - glb.Malmost[i]
-      glb.p[z] += abs2(cmo.tmpM)/cmo.tmpC + log(cmo.tmpC) # This is the slowest piece
-    end
-    glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz) # slowest piece
-    z < glb.dNpts[j] ? zz = glb.levelList[j,(z+1)] : nothing
+    glb.ruptr += 1 # increase randU counter
   end
 
-  nothing
+  # recompute particles, variance
+  calcIndices!(glb);
+  return nothing
 end
 
-function sampleIndex(j::Int, cmo::MSCompOpt, glb::GbGlb)
+
+"""
+    $SIGNATURES
+
+Sample new kernel in leave out density according to multiscale Gibbs sampling.
+
+- calculate temporary product of leave in density components (labels previously selected)
+- evaluate the likelihoods of the kernel means from the left out kernel on temporary product
+- randomly select a new label (kernel_i) for left out density according to temporarily evaluated likelihoods
+
+Notes
+-----
+
+- `j` is the left out density.
+- Needs on-manifold getMu for product of two leave in density kernels.
+- Needs diffop (on manifold difference for kernel evaluation).
+
+Sudderth PhD, p.139, Fig. 3.3, top-left operation
+"""
+function sampleIndex(j::Int,
+                     cmo::MSCompOpt,
+                     glb::GbGlb,
+                     addop=+, diffop=-,
+                     getMu::Function=getEuclidMu,
+                     getLambda::Function=getEuclidLambda  )::Nothing
   cmo.pT = 0.0
-  # determine product of selected particles from all but jth density
+  # determine product of selected kernel-labels from all but jth density (leave out)
   for i in 1:glb.Ndim
-    iCalmost = 0.0; iMalmost = 0.0;
-    for k in 1:glb.Ndens
-      if (k!=j) iCalmost += 1.0/glb.variance[i+glb.Ndim*(k-1)]; end
-      if (k!=j) iMalmost += glb.particles[i+glb.Ndim*(k-1)]/glb.variance[i+glb.Ndim*(k-1)]; end
-    end
-    glb.Calmost[i] = 1/iCalmost;
-    glb.Malmost[i] = iMalmost * glb.Calmost[i];
+    gaussianProductMeanCov!(glb, i, glb.Malmost, glb.Calmost, i, j, addop, getMu, getLambda )
+    # indexMeanCovDens!(glb, i, j)
   end
 
-  makeFasterSampleIndex!(j, cmo, glb)
+  # evaluates the likelihoods of the left out density for each kernel mean, and stores in `glb.p[z]`.
+  makeFasterSampleIndex!(j, cmo, glb, diffop)
 
   @simd for k in 1:glb.dNpts[j]
     cmo.pT += glb.p[k]
@@ -238,18 +436,17 @@ function sampleIndex(j::Int, cmo::MSCompOpt, glb::GbGlb)
   end
   glb.ind[j] = zz;
   glb.ruptr += 1
+
+  # prep new particles and variances for calculation
   @simd for i in 1:glb.Ndim
-    glb.particles[i+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], i)#[i]
-    glb.variance[i+glb.Ndim*(j-1)]  = bw(glb.trees[j], glb.ind[j], i)#[i];
+    glb.particles[i+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], i)
+    glb.variance[i+glb.Ndim*(j-1)]  = bw(glb.trees[j], glb.ind[j], i)
   end
+  return nothing
 end
 
-function printGlbs(g::GbGlb, tag=Union{})
-    if tag==Union{}
-        println("=========================================================================")
-    else
-        println(string(tag,"================================================================"))
-    end
+function printGlbs(g::GbGlb, tag::String="")
+    println(tag*"================================================================")
     println("Ndim=$(g.Ndim), Ndens=$(g.Ndens), Nlevels=$(g.Nlevels), dNp=$(g.dNp), dNpts=$(g.dNpts)")
     @show g.ind
     @show round.(g.particles, digits=2)
@@ -266,11 +463,16 @@ end
 function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
                 Np::Int, Niter::Int,
                 pts::Array{Float64,1}, ind::Array{Int,1},
-                randU::Array{Float64,1}, randN::Array{Float64,1})
+                randU::Array{Float64,1}, randN::Array{Float64,1};
+                addop=+, diffop=-,
+                getMu::Function=getEuclidMu,
+                getLambda::Function=getEuclidLambda)
+    #
 
     glbs = makeEmptyGbGlb()
     glbs.Ndens = Ndens
     glbs.trees = trees
+    # location for final posterior product samples
     glbs.newPoints = pts
     glbs.newIndices = ind
     glbs.randU = randU
@@ -288,6 +490,8 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
     glbs.p = zeros(maxNp)
     glbs.Malmost = zeros(glbs.Ndim)
     glbs.Calmost = zeros(glbs.Ndim)
+    glbs.calcmu = zeros(glbs.Ndens)
+    glbs.calclambdas = zeros(glbs.Ndens)
     glbs.Nlevels = floor(Int,((log(maxNp)/log(2))+1))
     glbs.particles = zeros(glbs.Ndim*Ndens)
     glbs.variance  = zeros(glbs.Ndim*Ndens)
@@ -297,21 +501,32 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
     cmo = MSCompOpt(0.0, 0.0, 0.0)
     cmoi = MSCompOpt(0.0, 0.0, 0.0)
 
+    # loop for all output kernels in product (how many samples do you want from product)
     for s in 1:Np
+        # index of where to put new sampled point in final posterior product
         frm = ((s-1)*glbs.Ndim)
 
+        # initial assignments
         levelInit!(glbs)
         initIndices!(glbs)
         calcIndices!(glbs)
 
+        # iterate down multi-scales of the Ball (k-d) tree (of the posterior belief?)
         for l in 1:glbs.Nlevels
-          samplePoint!(glbs.newPoints, glbs, frm)
-          levelDown!(glbs);
-          sampleIndices!(glbs.newPoints, cmoi, glbs, frm);
+          # multiply selected kernels from incoming densities, and sample a new point from the product.
+          samplePoint!(glbs.newPoints, glbs, frm, addop, getMu, getLambda )
 
-          for i in 1:Niter
+          # step a level down in the tree`
+          levelDown!(glbs);
+
+          # ??
+          sampleIndices!(glbs.newPoints, cmoi, glbs, frm, diffop);
+
+          # After T iters, selected a kernel from each density
+          @inbounds @fastmath for i in 1:Niter
             for j in 1:glbs.Ndens
-              @fastmath @inbounds sampleIndex(j, cmo, glbs);
+              # pick a new label (kernel_i) from the LOO density (j) -- assumed leave in Gaussian product already computed
+              sampleIndex(j, cmo, glbs, addop, diffop, getMu, getLambda );
             end
           end
         end
@@ -319,15 +534,38 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
         for j in 1:glbs.Ndens
           glbs.newIndices[(s-1)*glbs.Ndens+j] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;  # return particle label
         end
-        samplePoint!(glbs.newPoints, glbs, frm);
+
+        # take Gaussian product from a kernel component in all densities (inside samplePoint ??)
+        # and then sample a value from new posterior kernel
+        samplePoint!(glbs.newPoints, glbs, frm, addop, getMu, getLambda );
     end
     glbs = 0
     nothing
 end
 
+
 function prodAppxMSGibbsS(npd0::BallTreeDensity,
-                          npds::Array{BallTreeDensity,1}, anFcns, anParams,
-                          Niter::Int=5)
+                          npds::Array{BallTreeDensity,1},
+                          anFcns,
+                          anParams,
+                          Niter::Int )
+  @warn "prodApproxMSGibbs has new keyword interface, use (..; Niter::Int=5 ) instead"
+  prodAppxMSGibbsS(npd0,
+                   npds,
+                   anFcns,
+                   anParams;
+                   Niter=Niter )
+end
+
+function prodAppxMSGibbsS(npd0::BallTreeDensity,
+                          npds::Array{BallTreeDensity,1},
+                          anFcns,
+                          anParams;
+                          Niter::Int=5,
+                          addop=+,
+                          diffop=-,
+                          getMu::Function=getEuclidMu,
+                          getLambda::Function=getEuclidLambda )
     # See  Ihler,Sudderth,Freeman,&Willsky, "Efficient multiscale sampling from products
     #         of Gaussian mixtures", in Proc. Neural Information Processing Systems 2003
     Ndens = length(npds)              # of densities
@@ -346,29 +584,23 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
             maxNp = Npts(tree)
         end
     end
-    Nlevels = floor(Int,(log(Float64(maxNp))/log(2.0))+1.0)  # how many levels to a balanced binary tree?
+
+    # how many levels to a balanced binary tree?
+    Nlevels = floor(Int,(log(Float64(maxNp))/log(2.0))+1.0)
 
     # Generate enough random numbers to get us through the rest of this
     if true
       randU = rand(Int(Np*Ndens*(Niter+2)*Nlevels))
       randN = randn(Int(Ndim*Np*(Nlevels+1)))
     else
-        randU = vec(readdlm("randU.csv"))
-        randN = vec(readdlm("randN.csv"))
+      randU = vec(readdlm("randU.csv"))
+      randN = vec(readdlm("randN.csv"))
     end
 
-    gibbs1(Ndens, npds, Np, Niter, points, indices, randU, randN);
+    gibbs1(Ndens, npds, Np, Niter, points, indices, randU, randN, addop=addop, diffop=diffop, getMu=getMu, getLambda=getLambda );
     return reshape(points, Ndim, Np), reshape(indices, Ndens, Np)
 end
 
-function *(p1::BallTreeDensity, p2::BallTreeDensity)
-  numpts = round(Int,(Npts(p1)+Npts(p2))/2)
-  d = Ndim(p1)
-  d != Ndim(p2) ? error("kdes must have same dimension") : nothing
-  dummy = kde!(rand(d,numpts),[1.0]);
-  pGM, = prodAppxMSGibbsS(dummy, [p1;p2], Union{}, Union{}, 5)
-  return kde!(pGM)
-end
 
 
 function *(pp::Vector{BallTreeDensity})
@@ -378,6 +610,16 @@ function *(pp::Vector{BallTreeDensity})
     d != Ndim(p) ? error("kdes must have same dimension") : nothing
   end
   dummy = kde!(rand(d,numpts),[1.0]);
-  pGM, = prodAppxMSGibbsS(dummy, pp, Union{}, Union{}, 5)
+  pGM, = prodAppxMSGibbsS(dummy, pp, nothing, nothing, Niter=5)
   return kde!(pGM)
+end
+
+function *(p1::BallTreeDensity, p2::BallTreeDensity)
+  return *([p1;p2])
+  # numpts = round(Int,(Npts(p1)+Npts(p2))/2)
+  # d = Ndim(p1)
+  # d != Ndim(p2) ? error("kdes must have same dimension") : nothing
+  # dummy = kde!(rand(d,numpts),[1.0]);
+  # pGM, = prodAppxMSGibbsS(dummy, [p1;p2], nothing, nothing, Niter=5)
+  # return kde!(pGM)
 end

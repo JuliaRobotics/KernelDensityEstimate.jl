@@ -1,6 +1,4 @@
-#not available in Julia 0.3.8, but is in 0.4dev
-#@enum(KernelType,"Gaussian", "Epanetchnikov", "Laplacian")
-#@enum(Gradient,WRTMean, WRTVariance, WRTWeight)
+
 
 struct GaussianKer
     val::Float64
@@ -81,16 +79,16 @@ bwUniform(bd::BallTreeDensity) = bd.multibandwidth==0
 
 root(bd::BallTreeDensity) = root()
 
-function buildTree!(bd::BallTreeDensity)
+function buildTree!(bd::BallTreeDensity, addop=+, diffop=-)
   #println("buildTree!(::BallTreeDensity)")
-  buildTree!(bd.bt)
+  buildTree!(bd.bt, addop, diffop)
   nothing
 end
 
 # Swap the ith leaf with the jth leaf.
 function swapDensity!(bd::BallTreeDensity, i::Int, j::Int)
   if (i==j)
-      return Union{}
+      return nothing
   end
 
   swapBall!(bd.bt,i,j);
@@ -105,17 +103,21 @@ function swapDensity!(bd::BallTreeDensity, i::Int, j::Int)
     bd.bandwidth[i]  = bd.bandwidth[j];
     bd.bandwidth[j]  = tmp;
     if (!bwUniform(bd))
-      tmp = bd.bandwidthMax[i];bd.bandwidthMax[i]=bd.bandwidthMax[j];bd.bandwidthMax[j]=tmp;
-      tmp = bd.bandwidthMin[i];bd.bandwidthMin[i]=bd.bandwidthMin[j];bd.bandwidthMin[j]=tmp;
+      tmp = bd.bandwidthMax[i];
+      bd.bandwidthMax[i]=bd.bandwidthMax[j];
+      bd.bandwidthMax[j]=tmp;
+      tmp = bd.bandwidthMin[i];
+      bd.bandwidthMin[i]=bd.bandwidthMin[j];
+      bd.bandwidthMin[j]=tmp;
     end
     i+=1
     j+=1
   end
 end
 
-function calcStatsDensity!(bd, root::Int)
+function calcStatsDensity!(bd, root::Int, addop=+, diffop=-)
   #println("calcStatsDensity! -- is running")
-  calcStatsBall!(bd.bt, root)
+  calcStatsBall!(bd.bt, root, addop, diffop)
 
   k = 0
   wtL=0.
@@ -125,7 +127,7 @@ function calcStatsDensity!(bd, root::Int)
   leftI = left(bd.bt, root);
   rightI=right(bd.bt, root);        # get children indices
   if (!validIndex(bd.bt,leftI) || !validIndex(bd.bt, rightI))
-    return Union{}   # nothing to do if this
+    return nothing   # nothing to do if this
   end    #   isn't a parent node
 
   Ni  = bd.bt.dims*(root-1)
@@ -153,40 +155,25 @@ function calcStatsDensity!(bd, root::Int)
   #switch(type) {
   #  case Gaussian:
     for k in 1:bd.bt.dims
-      #@show k, Ni, NiL, NiR, round([wtL, wtR, wtT],2), round(bd.means[NiL+k],2), round(bd.means[NiR+k],2)
       bd.means[Ni+k]     = wtL * bd.means[NiL+k] + wtR * bd.means[NiR+k];
       bd.bandwidth[Ni+k] = wtL* (bd.bandwidth[NiL+k] + bd.means[NiL+k]*bd.means[NiL+k]) +
-                        wtR* (bd.bandwidth[NiR+k] + bd.means[NiR+k]*bd.means[NiR+k]) -
-                        bd.means[Ni+k]*bd.means[Ni+k];
-      #@show round([bd.means[Ni+k], bd.bandwidth[Ni+k]],2)
+                           wtR* (bd.bandwidth[NiR+k] + bd.means[NiR+k]*bd.means[NiR+k]) -
+                           bd.means[Ni+k]*bd.means[Ni+k];
     end
-  #  break;
-  #case Laplacian:
-  #  for(unsigned int k=0; k < dims; k++) {
-  #    means[Ni+k]     = wtL * means[NiL+k] + wtR * means[NiR+k];
-  #    bandwidth[Ni+k] = wtL* (2*bandwidth[NiL+k]*bandwidth[NiL+k] + means[NiL+k]*means[NiL+k]) +
-  #                      wtR* (2*bandwidth[NiR+k]*bandwidth[NiR+k] + means[NiR+k]*means[NiR+k]) -
-  #                      means[Ni+k]*means[Ni+k];     // compute in terms of variance
-  #    bandwidth[Ni+k] = sqrt(.5*bandwidth[Ni+k]);    //  then convert back to normal BW rep.
-  #  }; break;
-  #case Epanetchnikov:
-  #  for(unsigned int k=0; k < dims; k++) {
-  #    means[Ni+k]     = wtL * means[NiL+k] + wtR * means[NiR+k];
-  #    bandwidth[Ni+k] = wtL* (.2*bandwidth[NiL+k]*bandwidth[NiL+k] + means[NiL+k]*means[NiL+k]) +
-  #                      wtR* (.2*bandwidth[NiR+k]*bandwidth[NiR+k] + means[NiR+k]*means[NiR+k]) -
-  #                     means[Ni+k]*means[Ni+k];     // compute in terms of variance
-  #   bandwidth[Ni+k] = sqrt(5*bandwidth[Ni+k]);     //  then convert back to normal BW rep.
-  #  }; break;
- #}
-  return Union{}
+  return nothing
 end
 
 
 
 # Create new matlab arrays and put them in the given structure
-function makeBallTreeDensity(_pointsMatrix::Array{Float64,2}, _weightsMatrix::Array{Float64,1}, _bwMatrix::Array{Float64,1}, _type::DataType=GaussianKer)
-
-  bt = makeBallTree(_pointsMatrix, _weightsMatrix, true)
+function makeBallTreeDensity(_pointsMatrix::Array{Float64,2},
+                             _weightsMatrix::Array{Float64,1},
+                             _bwMatrix::Array{Float64,1},
+                             _type::DataType=GaussianKer,
+                             addop=+,
+                             diffop=-  )
+  #
+  bt = makeBallTree(_pointsMatrix, _weightsMatrix, true, addop, diffop)
   bt.calcStatsHandle = calcStatsDensity!
   bt.swapHandle = swapDensity!
 
@@ -220,15 +207,26 @@ function makeBallTreeDensity(_pointsMatrix::Array{Float64,2}, _weightsMatrix::Ar
   return bd
 end
 
-function makeBallTreeDensity(_pointsMatrix::Array{Float64,2}, _weightsMatrix::Array{Float64,1}, _type::DataType=GaussianKer)
-  makeBallTreeDensity(_pointsMatrix, _weightsMatrix, ones(size(_pointsMatrix,1)), _type)
+function makeBallTreeDensity(_pointsMatrix::Array{Float64,2},
+                             _weightsMatrix::Array{Float64,1},
+                             _type::DataType=GaussianKer,
+                             addop=+,
+                             diffop=-  )
+  makeBallTreeDensity(_pointsMatrix, _weightsMatrix, ones(size(_pointsMatrix,1)), _type, addop, diffop)
 end
 
 
 # Figure out which of two children in this tree is closest to a given
 # ball in another tree.  Returns the index in this tree of the closer
 # child.
-function closer!(bd::BallTreeDensity, myLeft::Int, myRight::Int, otherTree::BallTreeDensity, otherRoot::Int)
+function closer!(bd::BallTreeDensity,
+                 myLeft::Int,
+                 myRight::Int,
+                 otherTree::BallTreeDensity,
+                 otherRoot::Int,
+                 addop=+,
+                 diffop=-  )
+  #
   if (myRight==NO_CHILD || otherRoot==NO_CHILD)
     return myLeft
   end
@@ -236,10 +234,10 @@ function closer!(bd::BallTreeDensity, myLeft::Int, myRight::Int, otherTree::Ball
   dist_sq_r = 0.0
   #@fastmath @inbounds begin
     for i in 1:bd.bt.dims
-      dist_sq_l += (center(otherTree.bt, otherRoot, i) - center(bd.bt, myLeft, i)) *
-        (center(otherTree.bt, otherRoot, i) - center(bd.bt, myLeft, i));
-      dist_sq_r += (center(otherTree.bt, otherRoot, i) - center(bd.bt, myRight, i)) *
-        (center(otherTree.bt, otherRoot, i) - center(bd.bt, myRight, i));
+      dist_sq_l = addop(dist_sq_l, diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i)) *
+        diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i)));
+      dist_sq_r = addop(dist_sq_r, diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i)) *
+        diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i)));
     end
   #end
 
@@ -250,24 +248,28 @@ function closer!(bd::BallTreeDensity, myLeft::Int, myRight::Int, otherTree::Ball
   end
 end
 
-function closer!(bd::BallTreeDensity, i::Int, j::Int, other_tree::BallTreeDensity)
-  return closer!(bd,i,j,other_tree,root()) #othertree.root() = 1 anyway
+function closer!(bd::BallTreeDensity, i::Int, j::Int, other_tree::BallTreeDensity, addop=+, diffop=-)
+  return closer!(bd, i, j, other_tree, root(), addop, diffop) #othertree.root() = 1 anyway
 end
 
 # Perform a *slight* adjustment of the tree: move the points by delta, but
 #   don't reform the whole tree; just fix up the statistics.
 #
-function movePoints!(bd::BallTreeDensity, delta::Array{Float64,1})
+function movePoints!(bd::BallTreeDensity,
+                     delta::Array{Float64,1},
+                     addop=+,
+                     diffop=- )
+  #
   for i in leafFirst(bd,root()):leafLast(bd,root())
     for k in 1:bt.dims                      # first adjust locations by delta
-      bd.bt.centers[bd.bt.dims*(i-1)+k] += delta[ (getIndexOf(bd,i)-1)*bd.bt.dims + k ];
+      bd.bt.centers[bd.bt.dims*(i-1)+k] = addop( bd.bt.centers[bd.bt.dims*(i-1)+k], delta[ (getIndexOf(bd,i)-1)*bd.bt.dims + k ] );
     end
   end
   for i in bd.bt.num_points:-1:1               # then recompute stats of
-    calcStats!(bd.bt.data, i)                       #   parent nodes
+    calcStats!(bd.bt.data, i, addop, diffop)                       #   parent nodes
   end
-  calcStats!(bd.bt.data, root())                    #   and finally root node
-  return Union{}
+  calcStats!(bd.bt.data, root(), addop, diffop)                    #   and finally root node
+  return nothing
 end
 
 # Assumes newWeights is the right size (num_points)
@@ -280,7 +282,7 @@ function changeWeights!(bd::BallTreeDensity, newWeights::Array{Float64,1})
     calcStats!(bd.bt.data,i)
   end
   calcStats!(bd.bt.data, root());
-  return Union{}
+  return nothing
 end
 
 
@@ -317,22 +319,4 @@ function printBallTree(bd::BallTreeDensity, rnd=15)
   @show round.(bd.bandwidthMax,digits=rnd);
 
   nothing
-end
-
-function test02()
-  ## matlab results
-  #centers=[30]=4.4, 3.6, 5, 3.2, 0.18, 2, 5.5, 6.5, 7.5, 2.6, 0.18, 2.5, 0, 0, 0, 1.9, 1.2, 3, 3.3, -0.81, 2, 4.6, -0.56, 1, 4, 5, 6, 7, 8, 9,
-  #weights=[10]=1, 0.6, 0.4, 0.4, 0, 0.2, 0.2, 0.2, 0.2, 0.2,
-  #ranges=[30]=2.6, 4.4, 4, 1.4, 0.98, 1, 1.5, 1.5, 1.5, 0.7, 0.98, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  #highest_leaf=[10]=9, 7, 9, 6, 0, 5, 6, 7, 8, 9,
-  #lowest_leaf=[10]=5, 5, 8, 5, 0, 5, 6, 7, 8, 9,
-  #permutation=[10]=0, 0, 0, 0, 0, 2, 1, 0, 3, 4,
-
-  mus = [[4.6173,    3.2641,    1.8729, 4, 7 ]',
-     [-0.5592,   -0.8088,    1.1610, 5, 8]',
-     [1.,2.,3, 6, 9]']
-
-
-  bd = makeBallTreeDensity(mus, 0.2*ones(5), 0.04*ones(3))
-  printBallTree(bd)
 end

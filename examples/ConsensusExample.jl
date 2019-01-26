@@ -7,7 +7,7 @@ q = resample(kde!([-8.0; 13.0],[1.5]),300);
 
 # easy product operator example, use prodAppxMSGibbsS(...) for more options and multiple terms
 # dummy = kde!(rand(1,300),[1.0]);
-# pGM, = prodAppxMSGibbsS(dummy, [p;q], Union{}, Union{}, 5)
+# pGM, = prodAppxMSGibbsS(dummy, [p;q], nothing, nothing, 5)
 pq = p*q
 
 
@@ -18,7 +18,7 @@ pl = plotKDE([p;q;pq],c=["blue";"red";"deepskyblue"],legend=["p(Θ | Y)";"p(Θ |
 r = resample(kde!([-35;-11.0; 26.0],[2.5]),300);
 
 dummy = kde!(rand(1,300),[1.0]);
-pGM, = prodAppxMSGibbsS(dummy, [p;q;r], Union{}, Union{}, 5)
+pGM, = prodAppxMSGibbsS(dummy, [p;q;r], nothing, nothing, Niter=5)
 pqr = kde!(pGM);
 
 pl2 = plotKDE([p;q;r;pqr],c=["blue";"red";"green";"deepskyblue"],legend=["p(Θ | Y)";"p(Θ | Z1)";"p(Θ | Z2)";"p(Θ | Y, Z:)"],xlbl="p(Θ | Y, Z:) ∝ p(Θ | Y) p(Θ | Z1) p(Θ | Z2)")
