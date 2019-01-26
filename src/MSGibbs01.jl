@@ -96,12 +96,12 @@ Returns `Λμ`.
 Λμ = Σ_i (Λ_i*μ_i)
 ```
 """
-function getEuclidMu(mus::Vector{Float64}, lambdas::Vector{Float64})
+function getEuclidMu(mus::Vector{Float64}, lambdas::Vector{Float64}, scale::Float64=1.0)
   lambdamu = 0.0
   for z in 1:length(mus)
     lambdamu += mus[z]*lambdas[z]
   end
-  return lambdamu
+  return scale*lambdamu
 end
 
 
@@ -153,7 +153,8 @@ function gaussianProductMeanCov!(glb::GbGlb,
     destCov[idx] = getLambda(glb.calclambdas)
     destCov[idx] = 1.0/destCov[idx]
     # ?? μ = 1/Λ * Λμ
-    destMu[idx] = destCov[idx]*getMu(glb.calcmu, glb.calclambdas)
+    destMu[idx] = getMu(glb.calcmu, glb.calclambdas, destCov[idx])
+    # destMu[idx] = destCov[idx]*getMu(glb.calcmu, glb.calclambdas)
     # destMu[idx] = getMu(glb.calcmu, glb.calclambdas)
     # @show round.(glb.calclambdas, digits=3)
     # @show round.(glb.calcmu, digits=3)
