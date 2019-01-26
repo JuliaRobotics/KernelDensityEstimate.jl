@@ -3,10 +3,11 @@
 [![Build Status](https://travis-ci.org/JuliaRobotics/KernelDensityEstimate.jl.svg?branch=master)](https://travis-ci.org/JuliaRobotics/KernelDensityEstimate.jl)
 [![codecov.io](https://codecov.io/github/JuliaRobotics/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/JuliaRobotics/KernelDensityEstimate.jl?branch=master)
 
+<!--
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.6.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.6)
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_0.7.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=0.7)
 [![KernelDensityEstimate](http://pkg.julialang.org/badges/KernelDensityEstimate_1.0.svg)](http://pkg.julialang.org/?pkg=KernelDensityEstimate&ver=1.0)
-
+-->
 
 Kernel Density Estimation **with product approximation using multiscale Gibbs sampling**.
 
