@@ -105,7 +105,7 @@ function UnitTest1Dlcv01()
 
   print("Running UnitTest1Dlcv01...")
   x = vec(readdlm(testdatapath("test1Dlcv100.txt"))')
-  p = kde!(collect(x),"lcv")
+  p = kde!(collect(x) )
 
   d = parseMatPrintKDE(testdatapath("test1Dlcv100Result.txt"))
   refbtd = constructBTD(d)
@@ -131,7 +131,7 @@ end
 function UnitTest2Dlcv01()
   print("Running UnitTest2Dlcv01...")
   x = readdlm(testdatapath("test2Dlcv100.txt"))'
-  p = kde!(collect(x),"lcv")
+  p = kde!(collect(x) )
 
   d = parseMatPrintKDE(testdatapath("test2Dlcv100Result.txt"))
   refbtd = constructBTD(d)
@@ -155,7 +155,7 @@ end
 function UnitTest2Dvarlcv01()
   print("Running UnitTest2Dvarlcv01...")
   x = readdlm(testdatapath("test2Dvarlcv100.txt"))'
-  p = kde!(x,"lcv")
+  p = kde!(x )
 
   d = parseMatPrintKDE(testdatapath("test2Dvarlcv100Result.txt"))
   refbtd = constructBTD(d)

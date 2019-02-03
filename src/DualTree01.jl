@@ -32,7 +32,7 @@ function minDistGauss!(restmp::Array{Float64, 1}, bd::BallTreeDensity, dRoot::In
         restmp[1] -= (restmp[2]*restmp[2])/bwMax(bd, dRoot, k) + log(bwMin(bd, dRoot, k))
       end
     end
-    restmp[1] = exp(restmp[1]/2.0)
+    restmp[1] = exp(0.5*restmp[1])
   end
   nothing
 end
@@ -318,7 +318,7 @@ function makeDualTree(bd1::BallTreeDensity, bd2::BallTreeDensity, errTol::Float6
     return pRes
 end
 
-function evaluateDualTree(bd::BallTreeDensity, pos::Array{Float64,2}, lvFlag::Bool=false, errTol::Float64=1e-3, addop=+, diffop=-)
+function evaluateDualTree(bd::BallTreeDensity, pos::Array{Float64,2}, lvFlag::Bool=false, errTol::Float64=1e-3, addop=(+,), diffop=(-,))
     #dim = size(pos,1)
     if (bd.bt.dims != size(pos,1)) error("bd and pos must have the same dimension") end
     if (lvFlag)
@@ -330,7 +330,8 @@ function evaluateDualTree(bd::BallTreeDensity, pos::Array{Float64,2}, lvFlag::Bo
     return p
 end
 # should make this be the Union again TODO ??
-function evaluateDualTree(bd::BallTreeDensity, pos::AbstractArray{Float64,1}, lvFlag::Bool=false, errTol::Float64=1e-3)
+# TODO: not using diffop yet
+function evaluateDualTree(bd::BallTreeDensity, pos::AbstractArray{Float64,1}, lvFlag::Bool=false, errTol::Float64=1e-3, addop=(+,), diffop=(-,))
     @warn "evaluateDualTree vector evaluation API is changing for single point evaluation across multiple dimensions rather than assuming multiple points on a univariate kde."
     pos2 = zeros(1,length(pos))
     pos2[1,:] = pos[:]
@@ -511,7 +512,7 @@ function neighborMinMax(bd::BallTreeDensity)
     return minm, maxm
 end
 
-function ksize(bd::BallTreeDensity, t::String="lcv")
+function ksize(bd::BallTreeDensity, addop=(+,), diffop=(-,) )
     Nd = bd.bt.dims;
     Np = bd.bt.num_points;
 
@@ -525,7 +526,7 @@ function ksize(bd::BallTreeDensity, t::String="lcv")
     return npd
 end
 
-function kde!(points::A, autoselect::String="lcv") where {A <: AbstractArray{Float64,2}}
+function kde!(points::A, addop=(+,), diffop=(-,) ) where {A <: AbstractArray{Float64,2}}
   p = kde!(points, [1.0])
   #BEFORE
   # p = ksize(p, autoselect)
@@ -536,45 +537,45 @@ function kde!(points::A, autoselect::String="lcv") where {A <: AbstractArray{Flo
   # TODO convert to @threads after memory allocations are avoided
   for i in 1:dims
     # TODO implement ksize! method to avoid memory allocation with pp
-    pp = ksize(marginal(p,[i]), autoselect)
+    pp = ksize(marginal(p,[i]), addop, diffop )
     # pp2 = kde!(samplePts[i,:], "lcv")
     bwds[i] = getBW(pp)[1]
   end
-  p = kde!(points, bwds)
+  p = kde!(points, bwds, addop,  diffop )
 
   return p
 end
 
 
-function kde!(points::Array{Float64,1}, autoselect::String="lcv")
-  return kde!(reshape(points, 1, length(points)), autoselect)
+function kde!(points::Array{Float64,1}, addop=(+,), diffop=(-,) )
+  return kde!(reshape(points, 1, length(points)), addop, diffop )
 end
 
-function getKDERange(bd::BallTreeDensity; extend::Float64=0.1)
+function getKDERange(bd::BallTreeDensity; extend::Float64=0.1, addop=(+,), diffop=(-,) )
   rangeV = nothing
   pts = getPoints(bd)
   if (bd.bt.dims == 1) && false
     rangeV = [minimum(pts),maximum(pts)]
-    dr = extend*(rangeV[2]-rangeV[1])
-    rangeV[1] = rangeV[1] - dr;
-    rangeV[2] = rangeV[2] + dr;
+    dr = extend*diffop[1](rangeV[2], rangeV[1])
+    rangeV[1] = diffop[1](rangeV[1], dr);
+    rangeV[2] = addop[1](rangeV[2], dr);
   else
     rangeV = zeros(bd.bt.dims,2)
     for i in 1:bd.bt.dims
       rangeV[i,1], rangeV[i,2] = minimum(pts[i,:]), maximum(pts[i,:])
-      dr = extend*(rangeV[i,2]-rangeV[i,1])
-      rangeV[i,1] = rangeV[i,1] - dr;
-      rangeV[i,2] = rangeV[i,2] + dr;
+      dr = extend*diffop[i](rangeV[i,2],rangeV[i,1])
+      rangeV[i,1] = diffop[i](rangeV[i,1], dr);
+      rangeV[i,2] = addop[i](rangeV[i,2], dr);
     end
   end
 
   return rangeV
 end
 
-function getKDERange(BD::Vector{BallTreeDensity}; extend::Float64=0.1)
-  rangeV = getKDERange(BD[1], extend=extend)
+function getKDERange(BD::Vector{BallTreeDensity}; extend::Float64=0.1, addop=(+,), diffop=(-,))
+  rangeV = getKDERange(BD[1], extend=extend, addop=addop, diffop=diffop )
   for i in 2:length(BD)
-    tmprv = getKDERange(BD[i], extend=extend)
+    tmprv = getKDERange(BD[i], extend=extend, addop=addop, diffop=diffop )
     for j in 1:Ndim(BD[i])
       rangeV[j,1] = rangeV[j,1] < tmprv[j,1] ? rangeV[j,1] : tmprv[j,1]
       rangeV[j,2] = rangeV[j,2] > tmprv[j,2] ? rangeV[j,2] : tmprv[j,2]
@@ -583,16 +584,17 @@ function getKDERange(BD::Vector{BallTreeDensity}; extend::Float64=0.1)
   return rangeV
 end
 
-function getKDERangeLinspace(bd::BallTreeDensity; extend::Float64=0.1, N::Int=201)
-  v = getKDERange(bd,extend=extend)
+function getKDERangeLinspace(bd::BallTreeDensity; extend::Float64=0.1, N::Int=200, addop=(+,), diffop=(-,))
+  v = getKDERange(bd,extend=extend, addop=addop, diffop=diffop )
+  # TODO: udpate to use on-manifold
   return range(v[1], stop=v[2], length=N)
 end
 
-function getKDEMax(p::BallTreeDensity;N=200)
+function getKDEMax(p::BallTreeDensity; N=200, addop=(+,), diffop=(-,))
   m = zeros(p.bt.dims)
   for i in 1:p.bt.dims
     mm = marginal(p,[i])
-    rangeV = getKDERange(mm)
+    rangeV = getKDERange(mm, addop=addop, diffop=diffop )
     X = range(rangeV[1],stop=rangeV[2],length=N)
     # yV = evaluateDualTree(mm,X)
     yV = mm(reshape(collect(X), 1, N)) # TODO should allow AbstractArray
@@ -602,36 +604,47 @@ function getKDEMax(p::BallTreeDensity;N=200)
 end
 
 function getKDEMean(p::BallTreeDensity)
+  # TODO: update for on-manifold operations
   return vec(Statistics.mean(getPoints(p),dims=2))
 end
 function getKDEfit(p::BallTreeDensity; distribution=MvNormal)
+  # TODO: update for on-manifold operations
   fit(distribution, getPoints(p))
 end
 
 
-function intersIntgAppxIS(p::BallTreeDensity, q::BallTreeDensity;N=201)
+function intersIntgAppxIS(p::BallTreeDensity,
+                          q::BallTreeDensity;
+                          N=201,
+                          addop=(+,),
+                          diffop=(-,)  )
+
   ndims = Ndim(p)
   xx = zeros(ndims, N)
   dx = zeros(ndims)
   LD = Array{LinRange,1}(undef, ndims)
+  # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+  addopT = length(addop)!=ndims ? ([ (addop[1]) for i in 1:ndims]...,) : addop
+  diffopT = length(diffop)!=ndims ? ([ (diffop[1]) for i in 1:ndims]...,) : diffop
   for d in 1:ndims
-    LD[d] = getKDERangeLinspace(marginal(p,[d]), N=N, extend=0.3)
-    dx[d] = LD[d][2]-LD[d][1]
+    LD[d] = getKDERangeLinspace(marginal(p,[d]), N=N, extend=0.3, addop=addopT, diffop=diffopT)
+    dx[d] = diffopT[d](LD[d][2], LD[d][1])
   end
-  xx[1,:] = collect(getKDERangeLinspace(marginal(p,[1]), N=N, extend=0.3))
+  xx[1,:] = collect(getKDERangeLinspace(marginal(p,[1]), N=N, extend=0.3, addop=addopT, diffop=diffopT))
   acc = 0.0
   if ndims == 1
-    yy=evaluateDualTree(p,xx[:])
-    yy= yy .* evaluateDualTree(q,xx[:])
-    acc = sum(yy)*dx[1]
+    yy=evaluateDualTree(p,xx[:], false, 1e-3, addopT, diffopT)
+    yy= yy .* evaluateDualTree(q,xx[:], false, 1e-3, addopT, diffopT)
+    acc = addopT[1](acc, sum(yy)*dx[1])
   elseif ndims == 2
     for i in 1:N
       for j in 1:N
         @inbounds xx[2,j] = LD[2][i]
       end
-      yy=evaluateDualTree(p,xx)
-      yy = yy .* evaluateDualTree(q,xx)
-      acc += (dx[1]*sum(yy))*dx[2]
+      yy=evaluateDualTree(p, xx, false, 1e-3, addopT, diffopT)
+      yy = yy .* evaluateDualTree(q, xx, false, 1e-3, addopT, diffopT)
+      @warn "two dimensional intersIntgAppxIS might not be calculating correctly -- consider using AMP.mmd instead."
+      acc = addopT[1](acc, (dx[1]*sum(yy))*dx[2])
     end
   else
     error("Can't do higher dimensions yet")

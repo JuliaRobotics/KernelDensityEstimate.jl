@@ -1,8 +1,8 @@
 function kde!(points::A,
               ks::Array{Float64,1},
               weights::Array{Float64,1},
-              addop=+,
-              diffop=-  ) where {A <: AbstractArray{Float64,2}}
+              addop=(+,),
+              diffop=(-,)  ) where {A <: AbstractArray{Float64,2}}
   #
   Nd, Np = size(points)
   if (length(ks) == 1)
@@ -12,8 +12,13 @@ function kde!(points::A,
   ks = ks.^2 # Guassian only at this point, taking covariance
   weights = weights./sum(weights);
   #bwsize = length(ks);
+  # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+  addopT = length(addop)!=Nd ? ([ (addop[1]) for i in 1:Nd]...,) : addop
+  diffopT = length(diffop)!=Nd ? ([ (diffop[1]) for i in 1:Nd]...,) : diffop
+  # getMuT = length(getMu)!=Ndim ? ([ getMu[1] for i in 1:Ndim]...,) : getMu
+  # getLambdaT = length(getLambda)!=Ndim ? ([ getLambda[1] for i in 1:Ndim]...,) : getLambda
 
-  makeBallTreeDensity(points, weights, ks, GaussianKer, addop, diffop)
+  makeBallTreeDensity(points, weights, ks, GaussianKer, addopT[1], diffopT[1])
 
   #if (length())
 end
@@ -23,13 +28,21 @@ end
 
 Construct a BallTreeDensity object using `points` for centers and bandwidth `ks`.
 """
-function kde!(points::A, ks::Array{Float64,1}, addop=+, diffop=-) where {A <: AbstractArray{Float64,2}}
+function kde!(points::A, ks::Array{Float64,1}, addop=(+,), diffop=(-,)) where {A <: AbstractArray{Float64,2}}
+
   Nd, Np = size(points)
   weights = ones(Np)
+
+  # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+  addopT = length(addop)!=Nd ? ([ (addop[1]) for i in 1:Nd]...,) : addop
+  diffopT = length(diffop)!=Nd ? ([ (diffop[1]) for i in 1:Nd]...,) : diffop
+  # getMuT = length(getMu)!=Ndim ? ([ getMu[1] for i in 1:Ndim]...,) : getMu
+  # getLambdaT = length(getLambda)!=Ndim ? ([ getLambda[1] for i in 1:Ndim]...,) : getLambda
+
   kde!(points, ks, weights, addop, diffop)
 end
 
-function kde!(points::Array{Float64,1}, ks::Array{Float64,1}, addop=+, diffop=-)
+function kde!(points::Array{Float64,1}, ks::Array{Float64,1}, addop=(+,), diffop=(-,))
   Np = length(points)
   pts = zeros(1,Np)
   pts[1,:] = points
