@@ -18,7 +18,7 @@ function kde!(points::A,
   # getMuT = length(getMu)!=Ndim ? ([ getMu[1] for i in 1:Ndim]...,) : getMu
   # getLambdaT = length(getLambda)!=Ndim ? ([ getLambda[1] for i in 1:Ndim]...,) : getLambda
 
-  makeBallTreeDensity(points, weights, ks, GaussianKer, addopT[1], diffopT[1])
+  makeBallTreeDensity(points, weights, ks, GaussianKer, addopT, diffopT)
 
   #if (length())
 end
