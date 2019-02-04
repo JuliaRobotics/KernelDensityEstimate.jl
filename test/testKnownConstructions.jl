@@ -37,7 +37,7 @@ end
 function test03()
     spls = zeros(1,3)
     spls[1,:] = [0.5172, 0.7169, 0.4049]
-    p1000 = kde!(spls,"lcv");
+    p1000 = kde!(spls);
     printBallTree(p1000);
 
     # should get
@@ -58,7 +58,7 @@ function test04()
     spls = zeros(2,3)
     spls[1,:] = [0.5172, 0.7169, 0.4049]
     spls[2,:] = [0.0312, 1.0094, 2.0204]
-    p1000 = kde!(spls,"lcv");
+    p1000 = kde!(spls);
     printBallTree(p1000);
     # should get
     #BallTreeDensity

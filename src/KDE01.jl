@@ -1,3 +1,36 @@
+
+
+function kde!(points::A,
+              addop=(+,),
+              diffop=(-,) ) where {A <: AbstractArray{Float64,2}}
+  #
+  dims = size(points,1)
+
+  # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+  addopT = length(addop)!=dims ? ([ (addop[1]) for i in 1:dims]...,) : addop
+  diffopT = length(diffop)!=dims ? ([ (diffop[1]) for i in 1:dims]...,) : diffop
+
+  p = kde!(points, [1.0], addopT, diffopT)
+  bwds = zeros(dims)
+
+  # TODO convert to @threads after memory allocations are avoided
+  for i in 1:dims
+    # TODO implement ksize! method to avoid memory allocation with pp
+    pp = ksize(marginal(p,[i]), (addopT[i],), (diffopT[i],) )
+    bwds[i] = getBW(pp)[1]
+
+    # TODO add if for circular dimensions, until KDE.golden is manifold ready
+  end
+  p = kde!(points, bwds, addopT,  diffopT )
+
+  return p
+end
+
+
+function kde!(points::Array{Float64,1}, addop=(+,), diffop=(-,) )
+  return kde!(reshape(points, 1, length(points)), addop, diffop )
+end
+
 function kde!(points::A,
               ks::Array{Float64,1},
               weights::Array{Float64,1},

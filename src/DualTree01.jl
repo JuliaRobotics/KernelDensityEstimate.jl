@@ -153,12 +153,6 @@ function evalDirect(bd::BallTreeDensity,
         hdl.pMax[j] = hdl.pMax[j] + d
       end
     end
-    #D = 0.0
-    #D = @parallel (+) for i=leafFirst(bd,dRoot):leafLast(bd, dRoot)
-    #  (bd != atTree || i != j) ? weight(bd, i) * maxDistKer(bd, i, atTree, j) : 0.0               # Check leave-one-out condition;
-    #end
-    #hdl.pMin[j] += D
-    #hdl.pMax[j] += D
 
     @inbounds if (hdl.pMin[j] < minVal) minVal = hdl.pMin[j]; end  # determine min & max value in this block
     @inbounds if (hdl.pMax[j] > maxVal) maxVal = hdl.pMax[j]; end
@@ -281,7 +275,7 @@ function evaluate(bd::BallTreeDensity,
 
   # if the weighted contribution of this multiply is below the
   #    threshold, no need to recurse; just treat as constant
-  # TODO change to on-manifold evalutation
+  # CHECK change to on-manifold evalutation
   if ( Kmax - Kmin <= maxErr * total)            # APPROXIMATE: PERCENT
     Kmin *= weight(bd, dRoot);
     Kmax *= weight(bd, dRoot);
@@ -347,7 +341,11 @@ function evaluate(bd::BallTreeDensity,
 end
 
 
-function makeDualTree(bd1::BallTreeDensity, bd2::BallTreeDensity, errTol::Float64, addop=(+,), diffop=(-,) )
+function makeDualTree(bd1::BallTreeDensity,
+                      bd2::BallTreeDensity,
+                      errTol::Float64,
+                      addop=(+,),
+                      diffop=(-,) )
     #println("makeDualTree(::BTD,::BTD) -- UNTESTED!")
     #densTree = bd1
     #atTree = bd2
@@ -365,20 +363,26 @@ function evaluateDualTree(bd::BallTreeDensity,
     #dim = size(pos,1)
     if (bd.bt.dims != size(pos,1)) error("bd and pos must have the same dimension") end
     if (lvFlag)
-        p = makeDualTree(bd, errTol)
+        p = makeDualTree(bd, errTol, addop, diffop)
     else
       posKDE = makeBallTreeDensity(pos, ones(size(pos,2))./size(pos,2), GaussianKer, addop, diffop);
-      p = makeDualTree(bd,posKDE,errTol)
+      p = makeDualTree(bd,posKDE,errTol, addop, diffop)
     end
     return p
 end
+
 # should make this be the Union again TODO ??
 # TODO: not using diffop yet
-function evaluateDualTree(bd::BallTreeDensity, pos::AbstractArray{Float64,1}, lvFlag::Bool=false, errTol::Float64=1e-3, addop=(+,), diffop=(-,))
+function evaluateDualTree(bd::BallTreeDensity,
+                          pos::AbstractArray{Float64,1},
+                          lvFlag::Bool=false,
+                          errTol::Float64=1e-3,
+                          addop=(+,),
+                          diffop=(-,)  )
     @warn "evaluateDualTree vector evaluation API is changing for single point evaluation across multiple dimensions rather than assuming multiple points on a univariate kde."
     pos2 = zeros(1,length(pos))
     pos2[1,:] = pos[:]
-    return evaluateDualTree(bd, pos2, lvFlag, errTol)
+    return evaluateDualTree(bd, pos2, lvFlag, errTol, addop, diffop)
 end
 
 function makeDualTree(bd::BallTreeDensity, errTol::Float64, addop=(+,), diffop=(-,))
@@ -388,14 +392,6 @@ function makeDualTree(bd::BallTreeDensity, errTol::Float64, addop=(+,), diffop=(
     evaluate(bd, bd, pRes, errTol, addop, diffop) # this seems excessive
 
     return pRes
-end
-
-function (bd::BallTreeDensity)(pos::Array{Float64,2}, lvFlag::Bool=false, errTol::Float64=1e-3, addop=(+,), diffop=(-,) )
-  evaluateDualTree(bd, pos, lvFlag, errTol, addop, diffop)
-end
-
-function (bd::BallTreeDensity)(pos::Array{Float64,1}, lvFlag::Bool=false, errTol::Float64=1e-3, addop=(+,), diffop=(-,) )
-  evaluateDualTree(bd, reshape(pos,:,1), lvFlag, errTol, addop, diffop)
 end
 
 function evaluateDualTree(bd::BallTreeDensity, pos::BallTreeDensity, lvFlag::Bool=false, errTol::Float64=1e-3, addop=(+,), diffop=(-,))
@@ -409,8 +405,36 @@ function evaluateDualTree(bd::BallTreeDensity, pos::BallTreeDensity, lvFlag::Boo
     return p
 end
 
-function evalAvgLogL(bd1::BallTreeDensity, bd2::BallTreeDensity)
-  L = evaluateDualTree(bd1, bd2, false) # true
+
+"""
+    $SIGNATURES
+
+Evaluate the KDE object at given points.
+
+> **Note**, must use Array{Float64,2} when passing in evaluation points.
+"""
+function (bd::BallTreeDensity)(pos::Array{Float64,2},
+                               lvFlag::Bool=false,
+                               errTol::Float64=1e-3,
+                               addop=(+,),
+                               diffop=(-,) )
+  evaluateDualTree(bd, pos, lvFlag, errTol, addop, diffop)
+end
+function (bd::BallTreeDensity)(pos::Array{Float64,1},
+                               lvFlag::Bool=false,
+                               errTol::Float64=1e-3,
+                               addop=(+,),
+                               diffop=(-,) )
+  evaluateDualTree(bd, reshape(pos,:,1), lvFlag, errTol, addop, diffop)
+end
+
+
+function evalAvgLogL(bd1::BallTreeDensity,
+                     bd2::BallTreeDensity,
+                     addop=(+,),
+                     diffop=(-,) )
+  #
+  L = evaluateDualTree(bd1, bd2, false, 1e-3, addop, diffop) # true
   #printBallTree(bd1)
   W = getWeights(bd2)
 
@@ -433,11 +457,21 @@ function evalAvgLogL(bd1::BallTreeDensity, at::Array{Float64,1})
 end
 
 # estimate KL-divergence D_{KL}(p1 || p2)
-function kld(p1::BallTreeDensity, p2::BallTreeDensity; method::Symbol=:direct)
+function kld(p1::BallTreeDensity,
+             p2::BallTreeDensity;
+             method::Symbol=:direct,
+             addop=(+,),
+             diffop=(-,) )
+  #
+  D = Ndim(p1)
+
+  # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+  addopT = length(addop)!=D ? ([ (addop[1]) for i in 1:D]...,) : addop
+  diffopT = length(diffop)!=D ? ([ (diffop[1]) for i in 1:D]...,) : diffop
+
   if method == :direct
-    return evalAvgLogL(p1,p1) - evalAvgLogL(p2,p1)
+    return evalAvgLogL(p1,p1, addopT, diffopT) - evalAvgLogL(p2,p1, addopT, diffopT)
   elseif method == :unscented
-    D = Ndim(p1)
     N = Npts(p1)
     ptsE = getPoints(p1)
     ptsE = repeat(ptsE,1,2*D+1)
@@ -447,157 +481,21 @@ function kld(p1::BallTreeDensity, p2::BallTreeDensity; method::Symbol=:direct)
       ptsE[i,(2*i-1)*N+(1:N)] = ptsE[i,(2*i-1)*N+(1:N)] - bw[i,:];
     end;
     pE = kde!(ptsE);
-    return evalAvgLogL(p1,pE) - evalAvgLogL(p2,pE);
+    return evalAvgLogL(p1,pE, addopT, diffopT) - evalAvgLogL(p2,pE, addopT, diffopT);
   end
 end
 
-function entropy(bd::BallTreeDensity)
-    H = -evalAvgLogL(bd,bd)
+function entropy(bd::BallTreeDensity, addop=(+,), diffop=(-,))
+    H = -evalAvgLogL(bd,bd, addop, diffop)
     return H[1]
 end
 
-function updateBandwidth!(bd::BallTreeDensity, bw::Array{Float64, 1})
-    if (bd.multibandwidth==0)
-        bd.bandwidth = bw
-        bd.bandwidthMax = bd.bandwidthMin = bd.bandwidth[(bd.bt.num_points*bd.bt.dims+1):end]
-    else
-        error("updateBandwidth! -- multibandwidth==0 ELSE not implemented yet")
-    end
-end
 
-function nLOO_LL(alpha::Float64, bd::BallTreeDensity)
-  # assume always a Gaussian
-  alpha = alpha.^2
-
-  updateBandwidth!(bd,bd.bandwidth*alpha)
-  H = entropy(bd)
-  updateBandwidth!(bd,bd.bandwidth/alpha)
-
-  return H
-end
-
-"""
-    $(SIGNATURES)
-
-GOLDEN   Minimize the nLOO_LL function for KDE bandwidth selection
-of one variable using golden section search.
-
-xmin, fmin = golden(npd, f, ax, bx, cx, tol) computes a local minimum
-of f = KDE.nLOO_LL. xmin is the computed local minimizer of f and fmin is
-f(xmin). xmin is computed to an relative accuracy of TOL.
-
-The parameters ax, bx and cx must satisfy the following conditions:
-ax < bx < cx, f(bx) < f(ax) and f(bx) < f(cx).
-
-xmin satisfies ax < xmin < cx. golden is guaranteed to succeed if f
-is continuous between ax and cx
-
-Roman Geus, ETH Zuerich, 9.12.97
-"""
-function golden(bd::BallTreeDensity, ax::Float64, bx::Float64, cx::Float64, tol::Float64=1e-2)
-
-    C = (3.0-sqrt(5.0))/2.0
-    R = 1.0-C
-
-    x0 = ax
-    x3 = cx
-    if (abs(cx-bx) > abs(bx-ax))
-      x1 = bx
-      x2 = bx + C*(cx-bx)
-    else
-      x1 = bx - C*(bx-ax)
-      x2 = bx
-    end
-
-    #@show x1, x2
-    f1 = nLOO_LL(x1,bd)
-    f2 = nLOO_LL(x2,bd)
-
-    k = 1;
-    #tic()
-    while abs(x3-x0) > tol*(abs(x1)+abs(x2))
-    #  fprintf(1,'k=%4d, |a-b|=%e\n', k, abs(x3-x0));
-      if f2 < f1
-        x0 = x1
-        x1 = x2
-        x2 = R*x1 + C*x3   # x2 = x1+c*(x3-x1)
-        f1 = f2
-        f2 = nLOO_LL(x2,bd)
-      else
-        x3 = x2
-        x2 = x1
-        x1 = R*x2 + C*x0   # x1 = x2+c*(x0-x2)
-        f2 = f1
-        f1 = nLOO_LL(x1,bd)
-      end
-      k += 1
-    #  [x0,x1,x2,x3,f1,f2]
-    end
-    #println("Time for while loop $(toc())")
-
-    if f1 < f2
-      xmin = x1
-      fmin = f1
-    else
-      xmin = x2
-      fmin = f2
-    end
-    return xmin, fmin
-end
-
-function neighborMinMax(bd::BallTreeDensity)
-    tmp = (2*bd.bt.ranges).^2
-    rang = reshape(bd.bt.ranges[1:(floor(Int,end/2.0))],bd.bt.dims,bd.bt.num_points)
-    maxm = sqrt(sum( (2.0*rang[:,1]).^2 ))
-    ssumt = sqrt.(sum( (2.0*rang[:,1:(bd.bt.num_points-1)]).^2 , dims=1))
-    minm = minimum(ssumt)
-    minm = max(minm, 1e-6)
-    return minm, maxm
-end
-
-function ksize(bd::BallTreeDensity, addop=(+,), diffop=(-,) )
-    Nd = bd.bt.dims;
-    Np = bd.bt.num_points;
-
-    ##if (t=="lcv" || 'unif','lcvp','unifp')
-    minm,maxm = neighborMinMax(bd)
-    p = kde!(getPoints(bd),[(minm+maxm)/2.0],getWeights(bd))
-    ks, dummy = golden(p,2.0*minm/(minm+maxm),1.0,2.0*maxm/(minm+maxm))
-    ks = ks * ( minm + maxm )/2.0
-    ##end
-    npd = kde!(getPoints(p),[ks],getWeights(p))
-    return npd
-end
-
-function kde!(points::A, addop=(+,), diffop=(-,) ) where {A <: AbstractArray{Float64,2}}
-  p = kde!(points, [1.0])
-  #BEFORE
-  # p = ksize(p, autoselect)
-  #AFTER with independent weights on each dimension
-  dims = size(points,1)
-  bwds = zeros(dims)
-
-  # TODO convert to @threads after memory allocations are avoided
-  for i in 1:dims
-    # TODO implement ksize! method to avoid memory allocation with pp
-    pp = ksize(marginal(p,[i]), addop, diffop )
-    # pp2 = kde!(samplePts[i,:], "lcv")
-    bwds[i] = getBW(pp)[1]
-  end
-  p = kde!(points, bwds, addop,  diffop )
-
-  return p
-end
-
-
-function kde!(points::Array{Float64,1}, addop=(+,), diffop=(-,) )
-  return kde!(reshape(points, 1, length(points)), addop, diffop )
-end
 
 function getKDERange(bd::BallTreeDensity; extend::Float64=0.1, addop=(+,), diffop=(-,) )
   rangeV = nothing
   pts = getPoints(bd)
-  if (bd.bt.dims == 1) && false
+  if false && (bd.bt.dims == 1)
     rangeV = [minimum(pts),maximum(pts)]
     dr = extend*diffop[1](rangeV[2], rangeV[1])
     rangeV[1] = diffop[1](rangeV[1], dr);
@@ -605,7 +503,8 @@ function getKDERange(bd::BallTreeDensity; extend::Float64=0.1, addop=(+,), diffo
   else
     rangeV = zeros(bd.bt.dims,2)
     for i in 1:bd.bt.dims
-      rangeV[i,1], rangeV[i,2] = minimum(pts[i,:]), maximum(pts[i,:])
+      rangeV[i,1] = minimum(pts[i,:])
+      rangeV[i,2] = maximum(pts[i,:])
       dr = extend*diffop[i](rangeV[i,2],rangeV[i,1])
       rangeV[i,1] = diffop[i](rangeV[i,1], dr);
       rangeV[i,2] = addop[i](rangeV[i,2], dr);

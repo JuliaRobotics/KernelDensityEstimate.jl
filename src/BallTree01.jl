@@ -112,7 +112,7 @@ function  most_spread_coord(bt::BallTree, low::Int, high::Int, addop=(+,), diffo
   #println("most_spread_coord -- low, high = $((low, high))")
   max_variance = 0
   max_dim = 1
-  w =1.0/(high-low)
+  w = 1.0/(high-low)
 
   for dimension in 1:bt.dims
     # compute mean

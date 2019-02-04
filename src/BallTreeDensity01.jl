@@ -234,10 +234,10 @@ function closer!(bd::BallTreeDensity,
   dist_sq_r = 0.0
   #@fastmath @inbounds begin
     for i in 1:bd.bt.dims
-      dist_sq_l = addop[i](dist_sq_l, diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i)) *
-        diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i)));
-      dist_sq_r = addop[i](dist_sq_r, diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i)) *
-        diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i)));
+      dist_sq_l = addop[i](dist_sq_l, diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i))^2  );
+                                  # * diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i))   );
+      dist_sq_r = addop[i](dist_sq_r, diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i))^2  );
+                                  # * diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i)));
     end
   #end
 
@@ -286,7 +286,7 @@ function changeWeights!(bd::BallTreeDensity, newWeights::Array{Float64,1})
 end
 
 
-function resample(p::BallTreeDensity, Np::Int=-1, ksType::String="lcv")
+function resample(p::BallTreeDensity, Np::Int=-1, ksType::Symbol=:lcv)
 # resample(p,Np,KSType) -- construct a new estimate of the KDE p by sampling
 #                      Np new points; determines a bandwidth by ksize(pNew,KSType)
 #                      NOTE: KStype = 'discrete' resamples points by weight &
@@ -294,7 +294,7 @@ function resample(p::BallTreeDensity, Np::Int=-1, ksType::String="lcv")
   if (Np==-1)
     Np = getNpts(p)
   end
-  if (ksType == "discrete")
+  if (ksType == :discrete)
     q = kde!(getPoints(p),zeros(getDim(p),1),getWeights(p))
     samplePts,ind = sample(q,Np)
     if (size(p.bandwidth,2)>2*p.bt.num_points)
@@ -305,7 +305,7 @@ function resample(p::BallTreeDensity, Np::Int=-1, ksType::String="lcv")
     p2 = kde!(samplePts,ks);
   else
     samplePts, = sample(p,Np)
-    p2 = kde!(samplePts, ksType)
+    p2 = kde!(samplePts)
   end
   return p2
 end
