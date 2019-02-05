@@ -44,7 +44,18 @@ export
 
     # add * operator for kde product approximate
     *,
-    VectorRange
+    VectorRange,
+    setForceEvalDirect!
+
+
+# on-manifold quick fix for avoiding computational geometry speedups, see evaluate(...)
+global FORCE_EVAL_DIRECT = false
+
+function setForceEvalDirect!(flag=false)
+  global FORCE_EVAL_DIRECT = flag
+  @info "KernelDensityEstimate.FORCE_EVAL_DIRECT = $FORCE_EVAL_DIRECT"
+  nothing
+end
 
 
 VectorRange{T} = Union{Vector{T},UnitRange{T}}

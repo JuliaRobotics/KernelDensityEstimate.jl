@@ -235,7 +235,9 @@ function initIndices!(glb::GbGlb)
     while z <= dNp # ++z, used to be a for loop
       glb.p[z] = weight(glb.trees[j], zz);  # init by sampling from weights
         z+=1
-        if z<=dNp zz=glb.levelList[j,z]; end
+        if z<=dNp
+          zz=glb.levelList[j,z];
+        end
     end
 
     for z in 2:dNp
@@ -335,7 +337,7 @@ function sampleIndices!(X::Array{Float64,1},
 
       # TODO try refactor as eval kernel on-manifold
       for i in 1:glb.Ndim
-        # Note mean is on manifold
+        # Note mean just fetches bd.mean[...]
         tmp = diffop[i]( X[i+frm], mean(glb.trees[j], zz, i) )
         glb.p[z] += (tmp*tmp) / bw(glb.trees[j], zz, i)
         glb.p[z] += log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log

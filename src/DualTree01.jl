@@ -64,7 +64,8 @@ function maxDistGauss!(rettmp::Vector{Float64},
       if ( bwUniform(bd) )
           rettmp[1] -= (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
       else
-          rettmp[1] -= (rettmp[2]*rettmp[2])/(bwMin(bd, dRoot, k)) + (log(bwMax(bd.bt, dRoot, k))) # TODO - Root not defined here
+          # TODO - Root not defined here
+          rettmp[1] -= (rettmp[2]*rettmp[2])/(bwMin(bd, dRoot, k)) + (log(bwMax(bd.bt, dRoot, k)))
       end
     end
   end
@@ -255,40 +256,45 @@ function evaluate(bd::BallTreeDensity,
                   addop=(+,),
                   diffop=(-,)  )
   #
+  global DirectSize
+  global FORCE_EVAL_DIRECT
+
   ndims = bd.bt.dims
   addopT = length(addop)!=ndims ? ([ (addop[1]) for i in 1:ndims]...,) : addop
   diffopT = length(diffop)!=ndims ? ([ (diffop[1]) for i in 1:ndims]...,) : diffop
 
-  #result = 0.0
-  #tmp = 0.0
-  restmp = Array{Float64,1}(undef, 2)
 
-  # find the minimum and maximum effect of these two balls on each other
-  minDistKer!(restmp, bd, dRoot, atTree, aRoot, addopT, diffopT)
-  Kmax = restmp[1]
-  maxDistKer!(restmp, bd, dRoot, atTree, aRoot, addopT, diffopT)
-  Kmin = restmp[1]
+  # TODO Nixies Issue -- proper way to compute on-manifold distances between balls
+  if !FORCE_EVAL_DIRECT
+    restmp = Array{Float64,1}(undef, 2)
 
-  total = hdl.pMin[ aRoot ];		   	         # take pmin of data below this level
-  #total += hdl.pAdd[1,aRoot] - hdl.pErr[aRoot]; # add lower bound from local expansion
-  total += weight(bd, dRoot)*Kmin;               # also add minimum for this block
+    # find the minimum and maximum effect of these two balls on each other
+    minDistKer!(restmp, bd, dRoot, atTree, aRoot, addopT, diffopT)
+    Kmax = restmp[1]
+    maxDistKer!(restmp, bd, dRoot, atTree, aRoot, addopT, diffopT)
+    Kmin = restmp[1]
 
-  # if the weighted contribution of this multiply is below the
-  #    threshold, no need to recurse; just treat as constant
-  # CHECK change to on-manifold evalutation
-  if ( Kmax - Kmin <= maxErr * total)            # APPROXIMATE: PERCENT
-    Kmin *= weight(bd, dRoot);
-    Kmax *= weight(bd, dRoot);
+    total = hdl.pMin[ aRoot ];		   	         # take pmin of data below this level
+    #total += hdl.pAdd[1,aRoot] - hdl.pErr[aRoot]; # add lower bound from local expansion
+    total += weight(bd, dRoot)*Kmin;               # also add minimum for this block
 
-    dontRecurseSubtrees(bd, dRoot, atTree, aRoot, hdl, Kmin, Kmax, addopT, diffopT)
-
-  else
-    # TODO this if statement call consumes a lot of memory for some reason
-    if (Npts(bd, dRoot)*Npts(atTree, aRoot)<=DirectSize)  # DIRECT EVALUATION
-      evalDirect(bd, dRoot, atTree, aRoot, hdl, addopT, diffopT)
+    # if the weighted contribution of this multiply is below the
+    #    threshold, no need to recurse; just treat as constant
+    # CHECK change to on-manifold evalutation
+    if ( Kmax - Kmin <= maxErr * total)            # APPROXIMATE: PERCENT
+      Kmin *= weight(bd, dRoot);
+      Kmax *= weight(bd, dRoot);
+      dontRecurseSubtrees(bd, dRoot, atTree, aRoot, hdl, Kmin, Kmax, addopT, diffopT)
     else
-      recurseOnSubtrees(bd, dRoot, atTree, aRoot, maxErr, hdl, addopT, diffopT)
+      # TODO this if statement call consumes a lot of memory for some reason
+      if (Npts(bd, dRoot)*Npts(atTree, aRoot)<=DirectSize)  # DIRECT EVALUATION
+        evalDirect(bd, dRoot, atTree, aRoot, hdl, addopT, diffopT)
+      else
+        recurseOnSubtrees(bd, dRoot, atTree, aRoot, maxErr, hdl, addopT, diffopT)
+      end
     end
+  else
+    evalDirect(bd, dRoot, atTree, aRoot, hdl, addopT, diffopT)
   end
 
   return nothing
@@ -313,7 +319,7 @@ function evaluate(bd::BallTreeDensity,
                  zeros(1,0), #zeros(1,2*locations.bt.dims),
                  zeros(0),   #zeros(2*locations.bt.num_points),
                  [0.], [0.])
-
+  #
   evaluate(bd, root(), locations, root(), 2.0*maxErr, hdl, addop, diffop)
 
   # Gaussian kernel (add other kernel types here)
@@ -346,10 +352,9 @@ function makeDualTree(bd1::BallTreeDensity,
                       errTol::Float64,
                       addop=(+,),
                       diffop=(-,) )
-    #println("makeDualTree(::BTD,::BTD) -- UNTESTED!")
-    #densTree = bd1
-    #atTree = bd2
+    #
     pRes = zeros(Npts(bd2))
+    # NOTE should be evaluate!
     evaluate(bd1, bd2, pRes, errTol, addop, diffop)
     return pRes
 end
@@ -374,11 +379,11 @@ end
 # should make this be the Union again TODO ??
 # TODO: not using diffop yet
 function evaluateDualTree(bd::BallTreeDensity,
-                          pos::AbstractArray{Float64,1},
+                          pos::AA,
                           lvFlag::Bool=false,
                           errTol::Float64=1e-3,
                           addop=(+,),
-                          diffop=(-,)  )
+                          diffop=(-,)  ) where {AA <: AbstractArray{Float64,1}}
     @warn "evaluateDualTree vector evaluation API is changing for single point evaluation across multiple dimensions rather than assuming multiple points on a univariate kde."
     pos2 = zeros(1,length(pos))
     pos2[1,:] = pos[:]
@@ -394,13 +399,18 @@ function makeDualTree(bd::BallTreeDensity, errTol::Float64, addop=(+,), diffop=(
     return pRes
 end
 
-function evaluateDualTree(bd::BallTreeDensity, pos::BallTreeDensity, lvFlag::Bool=false, errTol::Float64=1e-3, addop=(+,), diffop=(-,))
+function evaluateDualTree(bd::BallTreeDensity,
+                          pos::BallTreeDensity,
+                          lvFlag::Bool=false,
+                          errTol::Float64=1e-3,
+                          addop=(+,),
+                          diffop=(-,)  )
+    #
     if (bd.bt.dims != pos.bt.dims) error("bd and pos must have the same dimension") end
     if (lvFlag)
         p = makeDualTree(bd, errTol, addop, diffop)
     else
-        posKDE = pos
-        p = makeDualTree(bd, posKDE, errTol, addop, diffop)
+        p = makeDualTree(bd, pos, errTol, addop, diffop)
     end
     return p
 end
@@ -425,8 +435,11 @@ function (bd::BallTreeDensity)(pos::Array{Float64,1},
                                errTol::Float64=1e-3,
                                addop=(+,),
                                diffop=(-,) )
-  evaluateDualTree(bd, reshape(pos,:,1), lvFlag, errTol, addop, diffop)
+  # TODO should it not be reshape(pos,1,:) instead?
+  # @warn "whoa! check reshape inside this eval balltree function"
+  evaluateDualTree(bd, reshape(pos,1,:), lvFlag, errTol, addop, diffop)
 end
+
 
 
 function evalAvgLogL(bd1::BallTreeDensity,
