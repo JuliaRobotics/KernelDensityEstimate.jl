@@ -1,8 +1,41 @@
+
+
+function kde!(points::A,
+              addop=(+,),
+              diffop=(-,) ) where {A <: AbstractArray{Float64,2}}
+  #
+  dims = size(points,1)
+
+  # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+  addopT = length(addop)!=dims ? ([ (addop[1]) for i in 1:dims]...,) : addop
+  diffopT = length(diffop)!=dims ? ([ (diffop[1]) for i in 1:dims]...,) : diffop
+
+  p = kde!(points, [1.0], addopT, diffopT)
+  bwds = zeros(dims)
+
+  # TODO convert to @threads after memory allocations are avoided
+  for i in 1:dims
+    # TODO implement ksize! method to avoid memory allocation with pp
+    pp = ksize(marginal(p,[i]), (addopT[i],), (diffopT[i],) )
+    bwds[i] = getBW(pp)[1]
+
+    # TODO add if for circular dimensions, until KDE.golden is manifold ready
+  end
+  p = kde!(points, bwds, addopT,  diffopT )
+
+  return p
+end
+
+
+function kde!(points::Array{Float64,1}, addop=(+,), diffop=(-,) )
+  return kde!(reshape(points, 1, length(points)), addop, diffop )
+end
+
 function kde!(points::A,
               ks::Array{Float64,1},
               weights::Array{Float64,1},
-              addop=+,
-              diffop=-  ) where {A <: AbstractArray{Float64,2}}
+              addop=(+,),
+              diffop=(-,)  ) where {A <: AbstractArray{Float64,2}}
   #
   Nd, Np = size(points)
   if (length(ks) == 1)
@@ -12,8 +45,13 @@ function kde!(points::A,
   ks = ks.^2 # Guassian only at this point, taking covariance
   weights = weights./sum(weights);
   #bwsize = length(ks);
+  # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+  addopT = length(addop)!=Nd ? ([ (addop[1]) for i in 1:Nd]...,) : addop
+  diffopT = length(diffop)!=Nd ? ([ (diffop[1]) for i in 1:Nd]...,) : diffop
+  # getMuT = length(getMu)!=Ndim ? ([ getMu[1] for i in 1:Ndim]...,) : getMu
+  # getLambdaT = length(getLambda)!=Ndim ? ([ getLambda[1] for i in 1:Ndim]...,) : getLambda
 
-  makeBallTreeDensity(points, weights, ks, GaussianKer, addop, diffop)
+  makeBallTreeDensity(points, weights, ks, GaussianKer, addopT, diffopT)
 
   #if (length())
 end
@@ -23,13 +61,21 @@ end
 
 Construct a BallTreeDensity object using `points` for centers and bandwidth `ks`.
 """
-function kde!(points::A, ks::Array{Float64,1}, addop=+, diffop=-) where {A <: AbstractArray{Float64,2}}
+function kde!(points::A, ks::Array{Float64,1}, addop=(+,), diffop=(-,)) where {A <: AbstractArray{Float64,2}}
+
   Nd, Np = size(points)
   weights = ones(Np)
+
+  # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+  addopT = length(addop)!=Nd ? ([ (addop[1]) for i in 1:Nd]...,) : addop
+  diffopT = length(diffop)!=Nd ? ([ (diffop[1]) for i in 1:Nd]...,) : diffop
+  # getMuT = length(getMu)!=Ndim ? ([ getMu[1] for i in 1:Ndim]...,) : getMu
+  # getLambdaT = length(getLambda)!=Ndim ? ([ getLambda[1] for i in 1:Ndim]...,) : getLambda
+
   kde!(points, ks, weights, addop, diffop)
 end
 
-function kde!(points::Array{Float64,1}, ks::Array{Float64,1}, addop=+, diffop=-)
+function kde!(points::Array{Float64,1}, ks::Array{Float64,1}, addop=(+,), diffop=(-,))
   Np = length(points)
   pts = zeros(1,Np)
   pts[1,:] = points

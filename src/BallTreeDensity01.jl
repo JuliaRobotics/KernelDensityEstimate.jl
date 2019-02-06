@@ -79,7 +79,7 @@ bwUniform(bd::BallTreeDensity) = bd.multibandwidth==0
 
 root(bd::BallTreeDensity) = root()
 
-function buildTree!(bd::BallTreeDensity, addop=+, diffop=-)
+function buildTree!(bd::BallTreeDensity, addop=(+,), diffop=(-,))
   #println("buildTree!(::BallTreeDensity)")
   buildTree!(bd.bt, addop, diffop)
   nothing
@@ -115,7 +115,7 @@ function swapDensity!(bd::BallTreeDensity, i::Int, j::Int)
   end
 end
 
-function calcStatsDensity!(bd, root::Int, addop=+, diffop=-)
+function calcStatsDensity!(bd, root::Int, addop=(+,), diffop=(-,))
   #println("calcStatsDensity! -- is running")
   calcStatsBall!(bd.bt, root, addop, diffop)
 
@@ -170,8 +170,8 @@ function makeBallTreeDensity(_pointsMatrix::Array{Float64,2},
                              _weightsMatrix::Array{Float64,1},
                              _bwMatrix::Array{Float64,1},
                              _type::DataType=GaussianKer,
-                             addop=+,
-                             diffop=-  )
+                             addop=(+,),
+                             diffop=(-,)  )
   #
   bt = makeBallTree(_pointsMatrix, _weightsMatrix, true, addop, diffop)
   bt.calcStatsHandle = calcStatsDensity!
@@ -202,7 +202,7 @@ function makeBallTreeDensity(_pointsMatrix::Array{Float64,2},
   bd = BallTreeDensity(bt, _type, multibw, means, bandwidth, bandwidthMin, bandwidthMax, bt.calcStatsHandle, bt.swapHandle)
   bd.bt.data = bd # we need the circular reference for emulating polymorphism
 
-  buildTree!(bd)
+  buildTree!(bd, addop, diffop)
 
   return bd
 end
@@ -210,8 +210,8 @@ end
 function makeBallTreeDensity(_pointsMatrix::Array{Float64,2},
                              _weightsMatrix::Array{Float64,1},
                              _type::DataType=GaussianKer,
-                             addop=+,
-                             diffop=-  )
+                             addop=(+,),
+                             diffop=(-,)  )
   makeBallTreeDensity(_pointsMatrix, _weightsMatrix, ones(size(_pointsMatrix,1)), _type, addop, diffop)
 end
 
@@ -224,8 +224,8 @@ function closer!(bd::BallTreeDensity,
                  myRight::Int,
                  otherTree::BallTreeDensity,
                  otherRoot::Int,
-                 addop=+,
-                 diffop=-  )
+                 addop=(+,),
+                 diffop=(-,)  )
   #
   if (myRight==NO_CHILD || otherRoot==NO_CHILD)
     return myLeft
@@ -234,10 +234,10 @@ function closer!(bd::BallTreeDensity,
   dist_sq_r = 0.0
   #@fastmath @inbounds begin
     for i in 1:bd.bt.dims
-      dist_sq_l = addop(dist_sq_l, diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i)) *
-        diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i)));
-      dist_sq_r = addop(dist_sq_r, diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i)) *
-        diffop(center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i)));
+      dist_sq_l = addop[i](dist_sq_l, diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i))^2  );
+                                  # * diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myLeft, i))   );
+      dist_sq_r = addop[i](dist_sq_r, diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i))^2  );
+                                  # * diffop[i](center(otherTree.bt, otherRoot, i), center(bd.bt, myRight, i)));
     end
   #end
 
@@ -248,7 +248,7 @@ function closer!(bd::BallTreeDensity,
   end
 end
 
-function closer!(bd::BallTreeDensity, i::Int, j::Int, other_tree::BallTreeDensity, addop=+, diffop=-)
+function closer!(bd::BallTreeDensity, i::Int, j::Int, other_tree::BallTreeDensity, addop=(+,), diffop=(-,))
   return closer!(bd, i, j, other_tree, root(), addop, diffop) #othertree.root() = 1 anyway
 end
 
@@ -257,12 +257,12 @@ end
 #
 function movePoints!(bd::BallTreeDensity,
                      delta::Array{Float64,1},
-                     addop=+,
-                     diffop=- )
+                     addop=(+,),
+                     diffop=(-,) )
   #
   for i in leafFirst(bd,root()):leafLast(bd,root())
     for k in 1:bt.dims                      # first adjust locations by delta
-      bd.bt.centers[bd.bt.dims*(i-1)+k] = addop( bd.bt.centers[bd.bt.dims*(i-1)+k], delta[ (getIndexOf(bd,i)-1)*bd.bt.dims + k ] );
+      bd.bt.centers[bd.bt.dims*(i-1)+k] = addop[k]( bd.bt.centers[bd.bt.dims*(i-1)+k], delta[ (getIndexOf(bd,i)-1)*bd.bt.dims + k ] );
     end
   end
   for i in bd.bt.num_points:-1:1               # then recompute stats of
@@ -286,7 +286,7 @@ function changeWeights!(bd::BallTreeDensity, newWeights::Array{Float64,1})
 end
 
 
-function resample(p::BallTreeDensity, Np::Int=-1, ksType::String="lcv")
+function resample(p::BallTreeDensity, Np::Int=-1, ksType::Symbol=:lcv)
 # resample(p,Np,KSType) -- construct a new estimate of the KDE p by sampling
 #                      Np new points; determines a bandwidth by ksize(pNew,KSType)
 #                      NOTE: KStype = 'discrete' resamples points by weight &
@@ -294,7 +294,7 @@ function resample(p::BallTreeDensity, Np::Int=-1, ksType::String="lcv")
   if (Np==-1)
     Np = getNpts(p)
   end
-  if (ksType == "discrete")
+  if (ksType == :discrete)
     q = kde!(getPoints(p),zeros(getDim(p),1),getWeights(p))
     samplePts,ind = sample(q,Np)
     if (size(p.bandwidth,2)>2*p.bt.num_points)
@@ -305,7 +305,7 @@ function resample(p::BallTreeDensity, Np::Int=-1, ksType::String="lcv")
     p2 = kde!(samplePts,ks);
   else
     samplePts, = sample(p,Np)
-    p2 = kde!(samplePts, ksType)
+    p2 = kde!(samplePts)
   end
   return p2
 end

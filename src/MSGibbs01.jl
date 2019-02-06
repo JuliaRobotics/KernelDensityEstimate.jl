@@ -188,7 +188,7 @@ Potential Concerns
 
 - Make sure tmpC can happen on Euclidean vs user manifold
 """
-function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb, diffop=-)
+function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb, diffop=(-,))
   ## SLOWEST PIECE OF THE COMPUTATION -- TODO
   # easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations...
   cmo.tmpC = 0.0
@@ -203,7 +203,7 @@ function makeFasterSampleIndex!(j::Int, cmo::MSCompOpt, glb::GbGlb, diffop=-)
       # NOTE make sure tmpC can be calculated on linear (Euclidean) manifold
       cmo.tmpC = bw(glb.trees[j], zz, i) + glb.Calmost[i]
       # Note on-manifold differencing operation
-      cmo.tmpM = diffop(mean(glb.trees[j], zz, i), glb.Malmost[i])
+      cmo.tmpM = diffop[i](mean(glb.trees[j], zz, i), glb.Malmost[i])
       # This is the slowest piece
       glb.p[z] += abs2(cmo.tmpM)/cmo.tmpC + log(cmo.tmpC)
     end
@@ -235,7 +235,9 @@ function initIndices!(glb::GbGlb)
     while z <= dNp # ++z, used to be a for loop
       glb.p[z] = weight(glb.trees[j], zz);  # init by sampling from weights
         z+=1
-        if z<=dNp zz=glb.levelList[j,z]; end
+        if z<=dNp
+          zz=glb.levelList[j,z];
+        end
     end
 
     for z in 2:dNp
@@ -264,16 +266,16 @@ Manifold defined by `addop`, `getMu`, and `getLambda`.
 function samplePoint!(X::Array{Float64,1},
                       glb::GbGlb,
                       frm::Int,
-                      addop=+,
-                      getMu::Function=getEuclidMu,
-                      getLambda::Function=getEuclidLambda )::Nothing
+                      addop::T1=(+,),
+                      getMu::T2=(getEuclidMu,),
+                      getLambda::T3=(getEuclidLambda,) )::Nothing  where {T1<:Tuple, T2<:Tuple, T3<:Tuple}
   #counter = 1
   for j in 1:glb.Ndim
     # Calculate on-manifold mean and covariance.  Does not skip a density here -- i.e. skip = -1;  see `sampleIndex(...)`
-    gaussianProductMeanCov!(glb, j, glb.mn, glb.vn, 1, -1, addop, getMu, getLambda ) # getMeanCovDens!
+    gaussianProductMeanCov!(glb, j, glb.mn, glb.vn, 1, -1, addop[j], getMu[j], getLambda[j] ) # getMeanCovDens!
     # then draw a sample from it
     glb.rnptr += 1
-    X[j+frm] = addop(glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] ) #counter
+    X[j+frm] = addop[j](glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] ) #counter
   end
   return nothing
 end
@@ -316,7 +318,7 @@ function sampleIndices!(X::Array{Float64,1},
                         cmoi::MSCompOpt,
                         glb::GbGlb,
                         frm::Int,
-                        diffop=-  )::Nothing #pT::Array{Float64,1}
+                        diffop=(-,)  )::Nothing #pT::Array{Float64,1}
   #
 
   # calculate likelihood of all kernel means
@@ -335,8 +337,8 @@ function sampleIndices!(X::Array{Float64,1},
 
       # TODO try refactor as eval kernel on-manifold
       for i in 1:glb.Ndim
-        # Note mean is on manifold
-        tmp = diffop( X[i+frm], mean(glb.trees[j], zz, i) )
+        # Note mean just fetches bd.mean[...]
+        tmp = diffop[i]( X[i+frm], mean(glb.trees[j], zz, i) )
         glb.p[z] += (tmp*tmp) / bw(glb.trees[j], zz, i)
         glb.p[z] += log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
       end
@@ -403,13 +405,13 @@ Sudderth PhD, p.139, Fig. 3.3, top-left operation
 function sampleIndex(j::Int,
                      cmo::MSCompOpt,
                      glb::GbGlb,
-                     addop=+, diffop=-,
-                     getMu::Function=getEuclidMu,
-                     getLambda::Function=getEuclidLambda  )::Nothing
+                     addop=(+,), diffop=(-,),
+                     getMu=(getEuclidMu,),
+                     getLambda=(getEuclidLambda,)  )::Nothing
   cmo.pT = 0.0
   # determine product of selected kernel-labels from all but jth density (leave out)
   for i in 1:glb.Ndim
-    gaussianProductMeanCov!(glb, i, glb.Malmost, glb.Calmost, i, j, addop, getMu, getLambda )
+    gaussianProductMeanCov!(glb, i, glb.Malmost, glb.Calmost, i, j, addop[i], getMu[i], getLambda[i] )
     # indexMeanCovDens!(glb, i, j)
   end
 
@@ -464,9 +466,9 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
                 Np::Int, Niter::Int,
                 pts::Array{Float64,1}, ind::Array{Int,1},
                 randU::Array{Float64,1}, randN::Array{Float64,1};
-                addop=+, diffop=-,
-                getMu::Function=getEuclidMu,
-                getLambda::Function=getEuclidLambda)
+                addop=(+,), diffop=(-,),
+                getMu=(getEuclidMu,),
+                getLambda=(getEuclidLambda,) )::Nothing
     #
 
     glbs = makeEmptyGbGlb()
@@ -561,16 +563,22 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
                           npds::Array{BallTreeDensity,1},
                           anFcns,
                           anParams;
-                          Niter::Int=5,
-                          addop=+,
-                          diffop=-,
-                          getMu::Function=getEuclidMu,
-                          getLambda::Function=getEuclidLambda )
+                          Niter::Int=3,
+                          addop::T1=(+,),
+                          diffop::T2=(-,),
+                          getMu::T3=(getEuclidMu,),
+                          getLambda::T4=(getEuclidLambda,)  ) where {T1<:Tuple,T2<:Tuple,T3<:Tuple,T4<:Tuple}
     # See  Ihler,Sudderth,Freeman,&Willsky, "Efficient multiscale sampling from products
     #         of Gaussian mixtures", in Proc. Neural Information Processing Systems 2003
     Ndens = length(npds)              # of densities
     Ndim  = npds[1].bt.dims           # of dimensions
     Np    = Npts(npd0)                # of points to sample
+
+    # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+    addopT = length(addop)!=Ndim ? ([ (addop[1]) for i in 1:Ndim]...,) : addop
+    diffopT = length(diffop)!=Ndim ? ([ (diffop[1]) for i in 1:Ndim]...,) : diffop
+    getMuT = length(getMu)!=Ndim ? ([ getMu[1] for i in 1:Ndim]...,) : getMu
+    getLambdaT = length(getLambda)!=Ndim ? ([ getLambda[1] for i in 1:Ndim]...,) : getLambda
 
     # skipping analytic functions for now TODO ??
     UseAn = false
@@ -597,7 +605,7 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
       randN = vec(readdlm("randN.csv"))
     end
 
-    gibbs1(Ndens, npds, Np, Niter, points, indices, randU, randN, addop=addop, diffop=diffop, getMu=getMu, getLambda=getLambda );
+    gibbs1(Ndens, npds, Np, Niter, points, indices, randU, randN, addop=addopT, diffop=diffopT, getMu=getMuT, getLambda=getLambdaT );
     return reshape(points, Ndim, Np), reshape(indices, Ndens, Np)
 end
 

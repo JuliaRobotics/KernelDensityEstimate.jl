@@ -44,7 +44,18 @@ export
 
     # add * operator for kde product approximate
     *,
-    VectorRange
+    VectorRange,
+    setForceEvalDirect!
+
+
+# on-manifold quick fix for avoiding computational geometry speedups, see evaluate(...)
+global FORCE_EVAL_DIRECT = false
+
+function setForceEvalDirect!(flag=false)
+  global FORCE_EVAL_DIRECT = flag
+  @info "KernelDensityEstimate.FORCE_EVAL_DIRECT = $FORCE_EVAL_DIRECT"
+  nothing
+end
 
 
 VectorRange{T} = Union{Vector{T},UnitRange{T}}
@@ -52,6 +63,7 @@ VectorRange{T} = Union{Vector{T},UnitRange{T}}
 include("BallTree01.jl")
 include("BallTreeDensity01.jl")
 include("DualTree01.jl")
+include("CrossValidation.jl")
 include("KDE01.jl")
 
 include("MSGibbs01.jl")
