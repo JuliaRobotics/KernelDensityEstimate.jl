@@ -365,13 +365,18 @@ function evaluateDualTree(bd::BallTreeDensity,
                           errTol::Float64=1e-3,
                           addop=(+,),
                           diffop=(-,)  )
-    #dim = size(pos,1)
+    #
+    ndims = bd.bt.dims
+    addopT = length(addop)!=ndims ? ([ (addop[1]) for i in 1:ndims]...,) : addop
+    diffopT = length(diffop)!=ndims ? ([ (diffop[1]) for i in 1:ndims]...,) : diffop
+
+
     if (bd.bt.dims != size(pos,1)) error("bd and pos must have the same dimension") end
     if (lvFlag)
-        p = makeDualTree(bd, errTol, addop, diffop)
+        p = makeDualTree(bd, errTol, addopT, diffopT)
     else
-      posKDE = makeBallTreeDensity(pos, ones(size(pos,2))./size(pos,2), GaussianKer, addop, diffop);
-      p = makeDualTree(bd,posKDE,errTol, addop, diffop)
+      posKDE = makeBallTreeDensity(pos, ones(size(pos,2))./size(pos,2), GaussianKer, addopT, diffopT);
+      p = makeDualTree(bd,posKDE,errTol, addopT, diffopT)
     end
     return p
 end
@@ -507,20 +512,26 @@ end
 
 function getKDERange(bd::BallTreeDensity; extend::Float64=0.1, addop=(+,), diffop=(-,) )
   rangeV = nothing
+  ndims = bd.bt.dims
+
+  # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+  addopT = length(addop)!=ndims ? ([ (addop[1]) for i in 1:ndims]...,) : addop
+  diffopT = length(diffop)!=ndims ? ([ (diffop[1]) for i in 1:ndims]...,) : diffop
+
   pts = getPoints(bd)
   if false && (bd.bt.dims == 1)
     rangeV = [minimum(pts),maximum(pts)]
-    dr = extend*diffop[1](rangeV[2], rangeV[1])
-    rangeV[1] = diffop[1](rangeV[1], dr);
-    rangeV[2] = addop[1](rangeV[2], dr);
+    dr = extend*diffopT[1](rangeV[2], rangeV[1])
+    rangeV[1] = diffopT[1](rangeV[1], dr);
+    rangeV[2] = addopT[1](rangeV[2], dr);
   else
     rangeV = zeros(bd.bt.dims,2)
     for i in 1:bd.bt.dims
       rangeV[i,1] = minimum(pts[i,:])
       rangeV[i,2] = maximum(pts[i,:])
-      dr = extend*diffop[i](rangeV[i,2],rangeV[i,1])
-      rangeV[i,1] = diffop[i](rangeV[i,1], dr);
-      rangeV[i,2] = addop[i](rangeV[i,2], dr);
+      dr = extend*diffopT[i](rangeV[i,2],rangeV[i,1])
+      rangeV[i,1] = diffopT[i](rangeV[i,1], dr);
+      rangeV[i,2] = addopT[i](rangeV[i,2], dr);
     end
   end
 
