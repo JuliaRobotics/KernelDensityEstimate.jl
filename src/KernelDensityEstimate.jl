@@ -2,7 +2,8 @@ __precompile__(true)
 
 module KernelDensityEstimate
 
-using LinearAlgebra, Statistics
+using LinearAlgebra
+using Statistics
 using Distributions
 using DocStringExtensions
 
