@@ -1,0 +1,6 @@
+name = "KernelDensityEstimate"
+uuid = "2472808a-b354-52ea-a80e-1658a3c6056d"
+
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
