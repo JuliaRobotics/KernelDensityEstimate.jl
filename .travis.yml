@@ -20,11 +20,8 @@ notifications:
   email: false
 
 script:
-  - julia --color=yes -e 'using Pkg; Pkg.build()'
-  - julia --check-bounds=yes --color=yes -e 'using Pkg; Pkg.test(coverage=true)'
-
-  # - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  # - julia --check-bounds=yes -e 'using Pkg; Pkg.clone(pwd()); Pkg.test("KernelDensityEstimate"; coverage=true)'
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - julia --check-bounds=yes -e 'using Pkg; Pkg.develop("KernelDensityEstimate"); Pkg.test("KernelDensityEstimate"; coverage=true)'
 
 after_success:
   - julia -e 'using Pkg; cd(Pkg.dir("KernelDensityEstimate")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
