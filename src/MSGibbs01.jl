@@ -199,7 +199,9 @@ function makeFasterSampleIndex!(j::Int,
                                 cmo::MSCompOpt,
                                 glb::GbGlb,
                                 offset::Int=0,
-                                diffop=(-,)  )
+                                diffop=(-,),
+                                doCalmost::Bool=true  )::Nothing
+  #
   cmo.tmpC = 0.0
   cmo.tmpM = 0.0
   cmo.pT = 0.0
@@ -211,7 +213,8 @@ function makeFasterSampleIndex!(j::Int,
     # compute mean `cmo.tmpM` and covariance `cmo.tmpC` across all KDE dimensions.
     for i in 1:glb.Ndim
       # tmpC is calculated on linear (Euclidean) manifold
-      cmo.tmpC = bw(glb.trees[j], zz, i) + glb.Calmost[i]
+      cmo.tmpC = bw(glb.trees[j], zz, i)
+      cmo.tmpC += doCalmost ? glb.Calmost[i] : 0.0
       # tmpM on-manifold differencing operation
       cmo.tmpM = diffop[i](mean(glb.trees[j], zz, i), glb.Malmost[i+offset])
       # This is the slowest piece
@@ -219,7 +222,7 @@ function makeFasterSampleIndex!(j::Int,
       glb.p[z] += log(cmo.tmpC)
     end
     # final stage in Gaussian kernel evaluation
-    @fastmath glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz) # slowest piece
+    @inbounds @fastmath glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz) # slowest piece
     #
     cmo.pT += glb.p[z]
     z < glb.dNpts[j] ? (zz = glb.levelList[j,(z+1)]) : nothing
@@ -350,7 +353,7 @@ function sampleIndex(j::Int,
   end
 
   # evaluates the likelihoods of the left out density for each kernel mean, and stores in `glb.p[z]`.
-  makeFasterSampleIndex!(j, cmo, glb, 0, diffop)
+  makeFasterSampleIndex!(j, cmo, glb, 0, diffop, true)
 
   zz=glb.levelList[j,1]
   z=1
