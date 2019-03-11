@@ -198,6 +198,8 @@ Development Notes
 function makeFasterSampleIndex!(j::Int,
                                 cmo::MSCompOpt,
                                 glb::GbGlb,
+                                muValue::Vector{Float64},
+                                covValue::Vector{Float64},
                                 offset::Int=0,
                                 diffop=(-,),
                                 doCalmost::Bool=true  )::Nothing
@@ -216,9 +218,9 @@ function makeFasterSampleIndex!(j::Int,
     for i in 1:glb.Ndim
       # tmpC is calculated on linear (Euclidean) manifold
       cmo.tmpC = bw(glb.trees[j], zz, i)
-      doCalmost ? (cmo.tmpC += glb.Calmost[i]) : nothing
+      doCalmost ? (cmo.tmpC += covValue[i]) : nothing
       # tmpM on-manifold differencing operation
-      cmo.tmpM = diffop[i](mean(glb.trees[j], zz, i), glb.Malmost[i+offset])
+      cmo.tmpM = diffop[i](mean(glb.trees[j], zz, i), muValue[i+offset])
       # This is the slowest piece
       glb.p[z] += (cmo.tmpM*cmo.tmpM)/cmo.tmpC
       glb.p[z] += log(cmo.tmpC)
@@ -271,34 +273,34 @@ function sampleIndices!(X::Array{Float64,1},
     # Total probability -- for normalization
     cmoi.pT = 0.0
 
-  # makeFasterSampleIndex!(j, cmoi, glb, offset, diffop, false)
+  makeFasterSampleIndex!(j, cmoi, glb, X, Vector{Float64}(undef, 0), offset, diffop, false)
 
-    # ?? which level of the tree are you?
-    zz=glb.levelList[j,1]
-    for z in 1:dNp
-      glb.p[z] = 0.0
-
-      for i in 1:glb.Ndim
-        tmpC = bw(glb.trees[j], zz, i)
-        tmpM = diffop[i]( mean(glb.trees[j], zz, i), X[i+offset] )
-        glb.p[z] += (tmpM*tmpM) / tmpC
-        glb.p[z] += log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
-      end
-      # final step in calculating Gaussian kernel
-      glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz)
-      cmoi.pT += glb.p[z]
-      z < dNp ? (zz = glb.levelList[j,(z+1)]) : nothing
-    end
-
-    # Normalize the new probabilty for selecting a new kernel
-    @simd for z in 1:dNp
-        glb.p[z] /= cmoi.pT
-    end
-
-    # construct CDF for sampling a new kernel
-    @simd for z in 2:dNp
-        glb.p[z] += glb.p[z-1]
-    end
+    # # ?? which level of the tree are you?
+    # zz=glb.levelList[j,1]
+    # for z in 1:dNp
+    #   glb.p[z] = 0.0
+    #
+    #   for i in 1:glb.Ndim
+    #     tmpC = bw(glb.trees[j], zz, i)
+    #     tmpM = diffop[i]( mean(glb.trees[j], zz, i), X[i+offset] )
+    #     glb.p[z] += (tmpM*tmpM) / tmpC
+    #     glb.p[z] += log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
+    #   end
+    #   # final step in calculating Gaussian kernel
+    #   glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz)
+    #   cmoi.pT += glb.p[z]
+    #   z < dNp ? (zz = glb.levelList[j,(z+1)]) : nothing
+    # end
+    #
+    # # Normalize the new probabilty for selecting a new kernel
+    # @simd for z in 1:dNp
+    #     glb.p[z] /= cmoi.pT
+    # end
+    #
+    # # construct CDF for sampling a new kernel
+    # @simd for z in 2:dNp
+    #     glb.p[z] += glb.p[z-1]
+    # end
 
     # sample a new kernel from CDF
     counter=1
@@ -358,7 +360,7 @@ function sampleIndex(j::Int,
   end
 
   # evaluates the likelihoods of the left out density for each kernel mean, and stores in `glb.p[z]`.
-  makeFasterSampleIndex!(j, cmo, glb, 0, diffop, true)
+  makeFasterSampleIndex!(j, cmo, glb, glb.Malmost, glb.Calmost, 0, diffop, true)
 
   zz=glb.levelList[j,1]
   z=1
