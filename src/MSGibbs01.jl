@@ -269,11 +269,7 @@ function sampleIndices!(X::Array{Float64,1},
     # how many kernels in this density
     dNp = glb.dNpts[j]    #trees[j].Npts();
 
-
-    # Total probability -- for normalization
-    cmoi.pT = 0.0
-
-  makeFasterSampleIndex!(j, cmoi, glb, X, Vector{Float64}(undef, 0), offset, diffop, false)
+    makeFasterSampleIndex!(j, cmoi, glb, X, Vector{Float64}(undef, 0), offset, diffop, false)
 
     # # ?? which level of the tree are you?
     # zz=glb.levelList[j,1]
