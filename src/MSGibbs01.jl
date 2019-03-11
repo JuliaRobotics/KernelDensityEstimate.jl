@@ -206,7 +206,9 @@ function makeFasterSampleIndex!(j::Int,
   cmo.tmpM = 0.0
   cmo.pT = 0.0
 
+  # zz=zz0
   zz=glb.levelList[j,1]
+
   # iterate over kernels in the left out density
   for z in 1:(glb.dNpts[j])
     glb.p[z] = 0.0
@@ -214,7 +216,7 @@ function makeFasterSampleIndex!(j::Int,
     for i in 1:glb.Ndim
       # tmpC is calculated on linear (Euclidean) manifold
       cmo.tmpC = bw(glb.trees[j], zz, i)
-      cmo.tmpC += doCalmost ? glb.Calmost[i] : 0.0
+      doCalmost ? (cmo.tmpC += glb.Calmost[i]) : nothing
       # tmpM on-manifold differencing operation
       cmo.tmpM = diffop[i](mean(glb.trees[j], zz, i), glb.Malmost[i+offset])
       # This is the slowest piece
@@ -258,24 +260,27 @@ function sampleIndices!(X::Array{Float64,1},
                         diffop=(-,)  )::Nothing #pT::Array{Float64,1}
   #
 
+
   # calculate likelihood of all kernel means
-  counter=1
-  zz=0
+  # zz=0
   for j in 1:glb.Ndens
     # how many kernels in this density
     dNp = glb.dNpts[j]    #trees[j].Npts();
+
+
     # Total probability -- for normalization
     cmoi.pT = 0.0
+
+  # makeFasterSampleIndex!(j, cmoi, glb, offset, diffop, false)
 
     # ?? which level of the tree are you?
     zz=glb.levelList[j,1]
     for z in 1:dNp
       glb.p[z] = 0.0
 
-      # TODO try refactor as eval kernel on-manifold
       for i in 1:glb.Ndim
         tmpC = bw(glb.trees[j], zz, i)
-        tmpM = diffop[i]( X[i+offset], mean(glb.trees[j], zz, i) )
+        tmpM = diffop[i]( mean(glb.trees[j], zz, i), X[i+offset] )
         glb.p[z] += (tmpM*tmpM) / tmpC
         glb.p[z] += log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
       end
@@ -283,7 +288,6 @@ function sampleIndices!(X::Array{Float64,1},
       glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz)
       cmoi.pT += glb.p[z]
       z < dNp ? (zz = glb.levelList[j,(z+1)]) : nothing
-      # zz = z<dNp ? glb.levelList[j,z+1] : zz
     end
 
     # Normalize the new probabilty for selecting a new kernel
@@ -297,6 +301,7 @@ function sampleIndices!(X::Array{Float64,1},
     end
 
     # sample a new kernel from CDF
+    counter=1
     z=1
     zz=glb.levelList[j,z]
     while z<=(dNp-1)
