@@ -115,7 +115,8 @@ end
 """
     $SIGNATURES
 
-Multiplication of Gaussians using leave in densities (if skip `skip` > 0).  For on-manifold operations, set `getMu` and `getLambda` operations accordingly.
+Multiplication of Gaussians using leave in densities (if `skip` > 0).
+For on-manifold operations, set `getMu` and `getLambda` operations accordingly.
 
 Notes
 -----
@@ -198,13 +199,13 @@ Development Notes
 - Easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations.  Could be related to memory allocation from multiple threads, worth retrying as Julia's automatic (and modern) threading model is enhanced.
 """
 function commonSampleIndex!(j::Int,
-                                cmo::MSCompOpt,
-                                glb::GbGlb,
-                                muValue::Vector{Float64},
-                                covValue::Vector{Float64},
-                                offset::Int=0,
-                                diffop=(-,),
-                                doCalmost::Bool=true  )::Nothing
+                            cmo::MSCompOpt,
+                            glb::GbGlb,
+                            muValue::Vector{Float64},
+                            covValue::Vector{Float64},
+                            offset::Int=0,
+                            diffop=(-,),
+                            doCalmost::Bool=true  )::Nothing
   #
   cmo.tmpC = 0.0
   cmo.tmpM = 0.0
@@ -286,7 +287,7 @@ function sampleIndices!(X::Array{Float64,1},
                         cmoi::MSCompOpt,
                         glb::GbGlb,
                         offset::Int,
-                        diffop=(-,)  )::Nothing #pT::Array{Float64,1}
+                        diffop::T=(-,)  )::Nothing where {T <: Tuple}
   #
 
   # calculate likelihood of all kernel means
@@ -296,12 +297,11 @@ function sampleIndices!(X::Array{Float64,1},
 
     # sample a new kernel from CDF
     sampleNewKernel!(glb, j)
-
   end
 
   # recompute particles, variance
-  calcIndices!(glb);
-  return nothing
+  calcIndices!(glb)
+  nothing
 end
 
 
@@ -321,12 +321,16 @@ Notes
 - Needs on-manifold getMu for product of two leave in density kernels.
 - Needs diffop (on manifold difference for kernel evaluation).
 
+References
+----------
+
 E. Sudderth PhD, p.139, Fig. 3.3, top-left operation && Similarly in A. Ihler PhD
 """
 function sampleIndex(j::Int,
                      cmo::MSCompOpt,
                      glb::GbGlb,
-                     addop=(+,), diffop=(-,),
+                     addop=(+,),
+                     diffop=(-,),
                      getMu=(getEuclidMu,),
                      getLambda=(getEuclidLambda,)  )::Nothing
   # determine product of selected kernel-labels from all but jth density (leave out)
@@ -342,8 +346,7 @@ function sampleIndex(j::Int,
 
   # prep new particles and variances for calculation
   updateGlbParticlesVariance!(glb, j)
-
-  return nothing
+  nothing
 end
 
 ## Level and sampling operations
@@ -388,7 +391,9 @@ end
 """
     $SIGNATURES
 
-Sampling a point from the product of kernels (density components) listed in `glb.variance` and `glb.particles` without skipping a kernel (not a leave-one-out case).
+Sampling a point from the product of kernels (density components) listed
+in `glb.variance` and `glb.particles` without skipping a kernel
+(not a leave-one-out case).
 
 Manifold defined by `addop`, `getMu`, and `getLambda`.
 """
@@ -398,13 +403,14 @@ function samplePoint!(X::Array{Float64,1},
                       addop::T1=(+,),
                       getMu::T2=(getEuclidMu,),
                       getLambda::T3=(getEuclidLambda,) )::Nothing  where {T1<:Tuple, T2<:Tuple, T3<:Tuple}
-  #counter = 1
+  #
+  stdev = sqrt(glb.vn[1])
   for j in 1:glb.Ndim
     # Calculate on-manifold mean and covariance.  Does not skip a density here -- i.e. skip = -1;  see `sampleIndex(...)`
     gaussianProductMeanCov!(glb, j, glb.mn, glb.vn, 1, -1, addop[j], getMu[j], getLambda[j] ) # getMeanCovDens!
     # then draw a sample from it
     glb.rnptr += 1
-    X[j+frm] = addop[j](glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] ) #counter
+    X[j+frm] = addop[j](glb.mn[1], stdev * glb.randN[glb.rnptr] ) #counter
   end
   return nothing
 end
@@ -432,7 +438,6 @@ function levelDown!(glb::GbGlb)::Nothing
   glb.levelListNew=tmp
   nothing
 end
-
 
 
 
