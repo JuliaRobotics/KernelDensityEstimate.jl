@@ -296,21 +296,6 @@ function sampleIndices!(X::Array{Float64,1},
 
     # sample a new kernel from CDF
     sampleNewKernel!(glb, j)
-    # z=1
-    # zz=glb.levelList[j,z]
-    # while z<=(glb.dNpts[j]-1)
-    #   # Selected a new kernel (`z`) from the `j`th density
-    #   if glb.randU[glb.ruptr] <= glb.p[z]  break; end
-    #   z+=1
-    #   # how many kernels in this density
-    #   if z<=glb.dNpts[j]
-    #     zz=glb.levelList[j,z]
-    #   else
-    #     error("This should never happen due to -1")
-    #   end
-    # end
-    # glb.ind[j] = zz
-    # glb.ruptr += 1
 
   end
 
@@ -336,7 +321,7 @@ Notes
 - Needs on-manifold getMu for product of two leave in density kernels.
 - Needs diffop (on manifold difference for kernel evaluation).
 
-Sudderth PhD, p.139, Fig. 3.3, top-left operation
+E. Sudderth PhD, p.139, Fig. 3.3, top-left operation && Similarly in A. Ihler PhD
 """
 function sampleIndex(j::Int,
                      cmo::MSCompOpt,
@@ -354,21 +339,6 @@ function sampleIndex(j::Int,
 
   # sample a new kernel from CDF
   sampleNewKernel!(glb, j)
-  # z=1
-  # zz=glb.levelList[j,z]
-  # while z<=(glb.dNpts[j]-1)
-  #   # Selected a new kernel (`z`) from the `j`th density
-  #   if glb.randU[glb.ruptr] <= glb.p[z]  break; end
-  #   z+=1
-  #   # how many kernels in this density
-  #   if z<=glb.dNpts[j]
-  #     zz=glb.levelList[j,z]
-  #   else
-  #     error("This should never happen due to -1")
-  #   end
-  # end
-  # glb.ind[j] = zz
-  # glb.ruptr += 1
 
   # prep new particles and variances for calculation
   updateGlbParticlesVariance!(glb, j)
