@@ -15,7 +15,7 @@ All code is implemented in native Julia, including plotting which uses Gadfly. T
 
     Sudderth, Erik B.; Ihler, Alexander, et al. "Nonparametric belief propagation." Communications of the ACM 53.10 (2010): 95-103.
 
-The package has built in plotting functionality, using [Gadfly](https://github.com/GiovineItalia/Gadfly.jl). This package is heavily used by [IncrementalInference](https://github.com/dehann/IncrementalInference.jl). Comments welcome.
+The package has built in plotting functionality, using [Gadfly](https://github.com/GiovineItalia/Gadfly.jl).  Comments welcome.
 
 ## Installation
 
