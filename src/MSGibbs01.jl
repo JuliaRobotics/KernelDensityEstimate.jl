@@ -26,6 +26,7 @@ mutable struct GbGlb
     vn::Vector{Float64}
     calclambdas::Vector{Float64}
     calcmu::Vector{Float64}
+    dummy::Vector{Float64}
 end
 
 function makeEmptyGbGlb()
@@ -37,7 +38,7 @@ function makeEmptyGbGlb()
                 zeros(0),
                 zeros(0),
                 zeros(0),
-                0,0,0,0,
+                0,0,0,0,              # Ndim, Ndens, Nlevels, dNp
                 zeros(0),
                 zeros(0),
                 ones(Int,0),
@@ -45,9 +46,10 @@ function makeEmptyGbGlb()
                 ones(Int,1,0),
                 ones(Int,1,0),
                 zeros(Int,0),
-                0, 0,
+                0, 0,                 # ruptr, rnptr
                 Float64[0.0;], Float64[0.0;],
-                zeros(0), zeros(0)  )
+                zeros(0), zeros(0),   # calclambdas, calcmu
+                Vector{Float64}(undef, 0) )
 end
 
 
@@ -195,7 +197,7 @@ Development Notes
 - TODO, this function is one of the bottlenecks in computation
 - Easy PARALLELs overhead here is much slower, already tried -- rather search for BLAS optimizations.  Could be related to memory allocation from multiple threads, worth retrying as Julia's automatic (and modern) threading model is enhanced.
 """
-function makeFasterSampleIndex!(j::Int,
+function commonSampleIndex!(j::Int,
                                 cmo::MSCompOpt,
                                 glb::GbGlb,
                                 muValue::Vector{Float64},
@@ -248,6 +250,31 @@ end
 """
     $SIGNATURES
 
+Selected a new kernel `z` from the `j`th density using CDF.
+"""
+function sampleNewKernel!(glb::GbGlb, j::Int)::Nothing
+  z=1
+  zz=glb.levelList[j,z]
+  while z<=(glb.dNpts[j]-1)
+    # Selected a new kernel (`z`) from the `j`th density
+    if glb.randU[glb.ruptr] <= glb.p[z]  break; end
+    z+=1
+    # how many kernels in this density
+    if z<=glb.dNpts[j]
+      zz=glb.levelList[j,z]
+    else
+      error("This should never happen due to -1")
+    end
+  end
+  glb.ind[j] = zz
+  glb.ruptr += 1
+  nothing
+end
+
+
+"""
+    $SIGNATURES
+
 ??
 
 Notes
@@ -262,61 +289,29 @@ function sampleIndices!(X::Array{Float64,1},
                         diffop=(-,)  )::Nothing #pT::Array{Float64,1}
   #
 
-
   # calculate likelihood of all kernel means
-  # zz=0
   for j in 1:glb.Ndens
-    # how many kernels in this density
-    dNp = glb.dNpts[j]    #trees[j].Npts();
 
-    makeFasterSampleIndex!(j, cmoi, glb, X, Vector{Float64}(undef, 0), offset, diffop, false)
-
-    # # ?? which level of the tree are you?
-    # zz=glb.levelList[j,1]
-    # for z in 1:dNp
-    #   glb.p[z] = 0.0
-    #
-    #   for i in 1:glb.Ndim
-    #     tmpC = bw(glb.trees[j], zz, i)
-    #     tmpM = diffop[i]( mean(glb.trees[j], zz, i), X[i+offset] )
-    #     glb.p[z] += (tmpM*tmpM) / tmpC
-    #     glb.p[z] += log(bw(glb.trees[j], zz, i)) # Base.Math.JuliaLibm.log
-    #   end
-    #   # final step in calculating Gaussian kernel
-    #   glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz)
-    #   cmoi.pT += glb.p[z]
-    #   z < dNp ? (zz = glb.levelList[j,(z+1)]) : nothing
-    # end
-    #
-    # # Normalize the new probabilty for selecting a new kernel
-    # @simd for z in 1:dNp
-    #     glb.p[z] /= cmoi.pT
-    # end
-    #
-    # # construct CDF for sampling a new kernel
-    # @simd for z in 2:dNp
-    #     glb.p[z] += glb.p[z-1]
-    # end
+    commonSampleIndex!(j, cmoi, glb, X, glb.dummy, offset, diffop, false)
 
     # sample a new kernel from CDF
-    counter=1
-    z=1
-    zz=glb.levelList[j,z]
-    while z<=(dNp-1)
-      if (glb.randU[glb.ruptr] <= glb.p[z])
-        # Selected a new kernel (`z`) from the `j`th density
-        break;
-      end
-      z+=1
-      if z<=dNp
-        zz=glb.levelList[j,z]
-      else
-        error("This should never happen due to -1")
-      end
-    end
-    glb.ind[j] = zz
-    counter+=1
-    glb.ruptr += 1 # increase randU counter
+    sampleNewKernel!(glb, j)
+    # z=1
+    # zz=glb.levelList[j,z]
+    # while z<=(glb.dNpts[j]-1)
+    #   # Selected a new kernel (`z`) from the `j`th density
+    #   if glb.randU[glb.ruptr] <= glb.p[z]  break; end
+    #   z+=1
+    #   # how many kernels in this density
+    #   if z<=glb.dNpts[j]
+    #     zz=glb.levelList[j,z]
+    #   else
+    #     error("This should never happen due to -1")
+    #   end
+    # end
+    # glb.ind[j] = zz
+    # glb.ruptr += 1
+
   end
 
   # recompute particles, variance
@@ -352,30 +347,32 @@ function sampleIndex(j::Int,
   # determine product of selected kernel-labels from all but jth density (leave out)
   for i in 1:glb.Ndim
     gaussianProductMeanCov!(glb, i, glb.Malmost, glb.Calmost, i, j, addop[i], getMu[i], getLambda[i] )
-    # indexMeanCovDens!(glb, i, j)
   end
 
   # evaluates the likelihoods of the left out density for each kernel mean, and stores in `glb.p[z]`.
-  makeFasterSampleIndex!(j, cmo, glb, glb.Malmost, glb.Calmost, 0, diffop, true)
+  commonSampleIndex!(j, cmo, glb, glb.Malmost, glb.Calmost, 0, diffop, true)
 
-  zz=glb.levelList[j,1]
-  z=1
-  while z<=(glb.dNpts[j]-1)
-    if (glb.randU[glb.ruptr] <= glb.p[z]) break;  end   #1  #   a new kernel from the jth
-    z+=1
-    if z<=glb.dNpts[j]
-      zz=glb.levelList[j,z]
-    end
-  end
-  glb.ind[j] = zz;
-  glb.ruptr += 1
+  # sample a new kernel from CDF
+  sampleNewKernel!(glb, j)
+  # z=1
+  # zz=glb.levelList[j,z]
+  # while z<=(glb.dNpts[j]-1)
+  #   # Selected a new kernel (`z`) from the `j`th density
+  #   if glb.randU[glb.ruptr] <= glb.p[z]  break; end
+  #   z+=1
+  #   # how many kernels in this density
+  #   if z<=glb.dNpts[j]
+  #     zz=glb.levelList[j,z]
+  #   else
+  #     error("This should never happen due to -1")
+  #   end
+  # end
+  # glb.ind[j] = zz
+  # glb.ruptr += 1
 
   # prep new particles and variances for calculation
   updateGlbParticlesVariance!(glb, j)
-  # @simd for dim in 1:glb.Ndim
-  #   glb.particles[dim+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], dim)
-  #   glb.variance[dim+glb.Ndim*(j-1)]  = bw(glb.trees[j], glb.ind[j], dim)
-  # end
+
   return nothing
 end
 
