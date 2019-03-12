@@ -19,11 +19,10 @@ The package has built in plotting functionality, using [Gadfly](https://github.c
 
 ## Installation
 
-    Pkg.add("KernelDensityEstimate")
-
-Newest stuff:
-
-    Pkg.checkout("KernelDensityEstimate")
+In Julia 0.7 and above:
+```julia
+] add KernelDensityEstimate
+```
 
 ## Plotting Functions
 
