@@ -115,7 +115,7 @@ end
 """
     $SIGNATURES
 
-Multiplication of Gaussians using leave in densities (if `skip` > 0).
+Multiplication of Gaussians using leave-in-densities (if `skip` > 0).
 For on-manifold operations, set `getMu` and `getLambda` operations accordingly.
 
 Notes
@@ -123,6 +123,10 @@ Notes
 - Used twice in samplePoint! (won't skip) and sampleIndex (will skip LOO).
 - Assumes manifold `diffop` baked into `getMu`.
 - use `j`th dimension
+
+Development
+-----------
+- Expand for dimension subsets
 """
 function gaussianProductMeanCov!(glb::GbGlb,
                                  dim::Int,
@@ -133,6 +137,7 @@ function gaussianProductMeanCov!(glb::GbGlb,
                                  addop=+,  # currently not required -- baked into getMu
                                  getMu::Function=getEuclidMu,
                                  getLambda::Function=getEuclidLambda  )::Nothing
+  #
   destMu[idx] = 0.0;
   destCov[idx] = 0.0;
   # Compute mean and variances (product) of selected particles
@@ -333,7 +338,9 @@ function sampleIndex(j::Int,
                      diffop=(-,),
                      getMu=(getEuclidMu,),
                      getLambda=(getEuclidLambda,)  )::Nothing
-  # determine product of selected kernel-labels from all but jth density (leave out)
+  #
+ # determine product of selected kernel-labels from all but jth density (leave out)
+    # TODO determine generalization for dimension subsets
   for i in 1:glb.Ndim
     gaussianProductMeanCov!(glb, i, glb.Malmost, glb.Calmost, i, j, addop[i], getMu[i], getLambda[i] )
   end
@@ -405,12 +412,14 @@ function samplePoint!(X::Array{Float64,1},
                       getLambda::T3=(getEuclidLambda,) )::Nothing  where {T1<:Tuple, T2<:Tuple, T3<:Tuple}
   #
   stdev = sqrt(glb.vn[1])
+  # TODO determine generalization for dimension subsets
   for j in 1:glb.Ndim
     # Calculate on-manifold mean and covariance.  Does not skip a density here -- i.e. skip = -1;  see `sampleIndex(...)`
-    gaussianProductMeanCov!(glb, j, glb.mn, glb.vn, 1, -1, addop[j], getMu[j], getLambda[j] ) # getMeanCovDens!
-    # then draw a sample from it
+    gaussianProductMeanCov!(glb, j, glb.mn, glb.vn, 1, -1, addop[j], getMu[j], getLambda[j] )
+
+    # draw a sample for each dimension
     glb.rnptr += 1
-    X[j+frm] = addop[j](glb.mn[1], stdev * glb.randN[glb.rnptr] ) #counter
+    X[j+frm] = addop[j](glb.mn[1], stdev * glb.randN[glb.rnptr] )
   end
   return nothing
 end

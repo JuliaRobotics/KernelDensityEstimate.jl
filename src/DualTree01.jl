@@ -55,21 +55,20 @@ function maxDistGauss!(rettmp::Vector{Float64},
   #densCenter = center(bd, dRoot)
   #bw = bwMin(bd, dRoot)
 
-  rettmp[1] = 0.0
-  @fastmath @inbounds begin for k in 1:Ndim(atTree.bt)
-      # TODO upgrade for more general manifolds
+  @fastmath @inbounds begin
+    rettmp[1] = 0.0
+    # TODO upgrade for more general manifolds
+    for k in 1:Ndim(atTree.bt)
       rettmp[2] = abs( diffop[k](center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
       rettmp[2] = addop[k](rettmp[2], rangeB(atTree.bt, aRoot,k) )
       rettmp[2] = addop[k](rettmp[2], rangeB(bd.bt, dRoot, k) )
-      if ( bwUniform(bd) )
-          rettmp[1] -= (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
-      else
-          # TODO - Root not defined here
-          rettmp[1] -= (rettmp[2]*rettmp[2])/(bwMin(bd, dRoot, k)) + (log(bwMax(bd.bt, dRoot, k)))
+      rettmp[1] += (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
+      if !bwUniform(bd)
+        rettmp[1] += log(bwMax(bd.bt, dRoot, k))
       end
     end
+    rettmp[1] = exp(-0.5*rettmp[1])
   end
-  rettmp[1] = exp(rettmp[1]/2.0)
   nothing
 end
 

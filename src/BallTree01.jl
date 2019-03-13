@@ -104,8 +104,17 @@ function swapBall!(bt::BallTree, _i::Int, _j::Int)
   end
 end
 
-# Find the dimension along which the leaves between low and high
-# inclusive have the greatest variance
+"""
+    $SIGNATURES
+
+Find the dimension along which to split child nodes between low and high,
+along the greatest variance.
+
+Development Notes
+-----------------
+- TODO refactor for subset dimension operations
+
+"""
 function  most_spread_coord(bt::BallTree, low::Int, high::Int, addop=(+,), diffop=(-,))
   #BallTree::index dimension, point, max_dim;
   #double mean, variance, max_variance;
