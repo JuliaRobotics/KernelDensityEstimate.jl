@@ -32,14 +32,14 @@ function minDistGauss!(restmp::Array{Float64, 1},
       restmp[2] = abs( diffop[k]( center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
       restmp[2] = diffop[k](restmp[2], rangeB(atTree.bt, aRoot, k) )
       restmp[2] = diffop[k](restmp[2], rangeB(bd.bt, dRoot, k) )
+      # reasoning behind saturation not clear (or documented well yet)
       restmp[2] = (restmp[2] > 0) ? restmp[2] : 0.0
-      if ( bwUniform(bd) )
-        restmp[1] -= (restmp[2]*restmp[2])/bwMax(bd, dRoot, k)
-      else
-        restmp[1] -= (restmp[2]*restmp[2])/bwMax(bd, dRoot, k) + log(bwMin(bd, dRoot, k))
+      restmp[1] += (restmp[2]*restmp[2])/bwMax(bd, dRoot, k)
+      if  !bwUniform(bd)
+        restmp[1] += log(bwMin(bd, dRoot, k))
       end
     end
-    restmp[1] = exp(0.5*restmp[1])
+    restmp[1] = exp(-0.5*restmp[1])
   end
   nothing
 end
@@ -97,11 +97,11 @@ end
 function pushDownLocal(atTree::BallTreeDensity, aRoot::Int, hdl::pArrHdls)
     if !(isLeaf(atTree, aRoot))
       close = atTree.left(aRoot);
-      if (close != NO_CHILD)
+      if (close != -1) # NO_CHILD
         hdl.pAdd[1,close] += hdl.pAdd[1,aRoot]
       end
       close = right(atTree, aRoot);
-      if (close != NO_CHILD)
+      if (close != -1) # NO_CHILD
         hdl.pAdd[1,close] += hdl.pAdd[1,aRoot]
       end
       hdl.pAdd[1,aRoot] = 0
@@ -176,21 +176,21 @@ function recurseOnSubtrees(bd::BallTreeDensity,
   # that first so that the values are higher and there is a better
   # chance of being able to skip a recursion.
   close_ = closer!(atTree, left(atTree, aRoot), right(atTree, aRoot), bd, left(bd, dRoot), addop, diffop)
-  if (left(bd, dRoot) != NO_CHILD && close_ != NO_CHILD)
+  if (left(bd, dRoot) != -1 && close_ != -1 ) # NO_CHILD
     evaluate(bd, left(bd, dRoot), atTree, close_, maxErr, hdl, addop, diffop);
   end
   far   = (close_ == left(atTree, aRoot)) ? right(atTree, aRoot) : left(atTree, aRoot);
-  if (left(bd, dRoot) != NO_CHILD && far != NO_CHILD)
+  if (left(bd, dRoot) != -1 && far != -1) # NO_CHILD
     evaluate(bd, left(bd, dRoot), atTree, far, maxErr, hdl, addop, diffop);
   end
 
   # Now the same thing for the density's right child
   close_ = closer!(atTree, left(atTree, aRoot), right(atTree, aRoot), bd, right(bd, dRoot), addop, diffop)
-  if (right(bd, dRoot) != NO_CHILD && close_ != NO_CHILD)
+  if (right(bd, dRoot) != -1 && close_ != -1) # NO_CHILD
     evaluate(bd, right(bd, dRoot), atTree, close_, maxErr, hdl, addop, diffop)
   end
   far   = (close_ == left(atTree, aRoot)) ? right(atTree, aRoot) : left(atTree, aRoot);
-  if (right(bd, dRoot) != NO_CHILD && far != NO_CHILD)
+  if (right(bd, dRoot) != -1 && far != -1) # NO_CHILD
     evaluate(bd, right(bd, dRoot), atTree, far, maxErr, hdl, addop, diffop);
   end
 
@@ -198,7 +198,7 @@ function recurseOnSubtrees(bd::BallTreeDensity,
   if !(isLeaf(atTree, aRoot))
     hdl.pMin[aRoot] = hdl.pMin[ left(atTree, aRoot) ]
     hdl.pMax[aRoot] = hdl.pMax[ left(atTree, aRoot) ]
-    if (right(atTree, aRoot) != NO_CHILD)
+    if (right(atTree, aRoot) != -1) # NO_CHILD
       if (hdl.pMin[aRoot] > hdl.pMin[ right(atTree, aRoot) ])
         hdl.pMin[aRoot] = hdl.pMin[ right(atTree, aRoot) ]
       end

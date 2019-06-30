@@ -227,7 +227,7 @@ function closer!(bd::BallTreeDensity,
                  addop=(+,),
                  diffop=(-,)  )
   #
-  if (myRight==NO_CHILD || otherRoot==NO_CHILD)
+  if (myRight==-1 || otherRoot==-1) #NO_CHILD
     return myLeft
   end
   dist_sq_l = 0.0

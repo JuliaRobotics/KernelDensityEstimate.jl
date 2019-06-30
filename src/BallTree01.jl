@@ -2,7 +2,7 @@
 
 # Ball Tree
 
-global NO_CHILD = -1
+# global NO_CHILD = -1
 # FIELD_NAMES = ["D", "N", "centers", "ranges", "weights",
 #             "lower", "upper", "leftch", "rightch", "perm"]
 # nfields = 10;
@@ -113,21 +113,21 @@ along the greatest variance.
 Development Notes
 -----------------
 - TODO refactor for subset dimension operations
+- low and high represent?
 
 """
 function  most_spread_coord(bt::BallTree, low::Int, high::Int, addop=(+,), diffop=(-,))
-  #BallTree::index dimension, point, max_dim;
-  #double mean, variance, max_variance;
-  #println("most_spread_coord -- low, high = $((low, high))")
   max_variance = 0
   max_dim = 1
   w = 1.0/(high-low)
 
+  # TODO give priority to dimension subsets
   for dimension in 1:bt.dims
-    # compute mean
+
+    # compute mean -- TODO how is this different from getMu (specificlly if stochastic getMu)?
     mean = 0
     for point = (bt.dims*(low-1) + dimension):bt.dims:(bt.dims*(high-1))
-      # scale each value by 1/N
+      # scale each value by 1/(high-low)
       mean = addop[dimension](mean, w*bt.centers[point])
     end
 
@@ -311,17 +311,20 @@ function calcStatsBall!(bt::BallTree, root::Int, addop=(+,), diffop=(-,))
   return nothing
 end
 
+"""
+    $SIGNATURES
 
-# Given the leaves, build the rest of the tree from the top down.
-# Split the leaves along the most spread coordinate, build two balls
-# out of those, and then build a ball around those two children.
+Given the leaves, build the rest of the tree from the top down.
+Split the leaves along the most spread coordinate, build two balls
+out of those, and then build a ball around those two children.
+"""
 function buildBall!(bt::BallTree,
                     low::Int,
                     high::Int,
                     root::Int,
                     addop=(+,),
                     diffop=(-,)  )::Nothing
-  global NO_CHILD
+  # global NO_CHILD
   #println("buildBall! -- (low, high, root)=$((low, high, root))")
   # special case for N=1 trees
   if (low == high)
@@ -333,12 +336,12 @@ function buildBall!(bt::BallTree,
     # point it to the correct NO_CHILD afterwards.  kinda kludgey
     bt.right_child[root] = high;
     calcStats!(bt.data, root, addop, diffop)
-    bt.right_child[root] = NO_CHILD;
+    bt.right_child[root] = -1 # NO_CHILD;
     return nothing
   end
 
   #BallTree::index coord, split, left, right;
-  coord = most_spread_coord(bt, low, high, addop, diffop); # find dimension of widest spread
+  coord = most_spread_coord(bt, low, high, addop, diffop); # find dimension of widest variance
 
   # split the current leaves into two groups, to build balls on them.
   # Choose the most spread coordinate to split them on, and make sure
@@ -386,13 +389,20 @@ function buildBall!(bt::BallTree,
   return nothing
 end
 
-# Public method to build the tree, just calls the private method with
-# the proper starting arguments.
+"""
+    $SIGNATURES
+
+Build the ball tree.
+
+Notes
+-----
+- Calls the similar method with the proper starting arguments.
+"""
 function buildTree!(bt::BallTree, addop=(+,), diffop=(-,))
-  global NO_CHILD
-  #println("buildTree!(::BallTree) -- is running")
+  # global NO_CHILD
   i=bt.num_points
   @inbounds for j in 1:bt.num_points
+    # TODO manage subsets -- for example quaternion identity is [1,0,0,0] and not just 0
     for k in 1:bt.dims
       bt.ranges[i*bt.dims+k] = 0
     end
@@ -400,7 +410,7 @@ function buildTree!(bt::BallTree, addop=(+,), diffop=(-,))
     bt.lowest_leaf[i] = i
     bt.highest_leaf[i] = i
     bt.left_child[i] = i
-    bt.right_child[i] = NO_CHILD #int64(uint32(NO_CHILD))
+    bt.right_child[i] = -1 # NO_CHILD
     bt.permutation[i] = j
   end
   bt.next = 2
