@@ -411,7 +411,6 @@ function samplePoint!(X::Array{Float64,1},
                       getMu::T2=(getEuclidMu,),
                       getLambda::T3=(getEuclidLambda,) )::Nothing  where {T1<:Tuple, T2<:Tuple, T3<:Tuple}
   #
-  stdev = sqrt(glb.vn[1])
   # TODO determine generalization for dimension subsets
   for j in 1:glb.Ndim
     # Calculate on-manifold mean and covariance.  Does not skip a density here -- i.e. skip = -1;  see `sampleIndex(...)`
@@ -419,7 +418,7 @@ function samplePoint!(X::Array{Float64,1},
 
     # draw a sample for each dimension
     glb.rnptr += 1
-    X[j+frm] = addop[j](glb.mn[1], stdev * glb.randN[glb.rnptr] )
+    X[j+frm] = addop[j](glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] )
   end
   return nothing
 end
