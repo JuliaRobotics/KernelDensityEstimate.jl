@@ -171,15 +171,17 @@ function evalDirect(bd::BallTreeDensity,
   minVal=2e22;
   maxVal=0.0;
   # restmp = Array{Float64,1}(undef, 2)
-  d = 0.0
+  # d = 0.0
   for j in leafFirst(atTree.bt, aRoot):leafLast(atTree.bt, aRoot)
     for i in leafFirst(bd.bt,dRoot):leafLast(bd.bt, dRoot)
-      if (bd != atTree || i != j)                              # Check leave-one-out condition;
-        #d = weight(bd.bt, i) * maxDistKer(bd, i, atTree, j)   #  Do direct N^2 kernel evaluation
+      # TODO PoC sensitivity weighting here
+      if (bd != atTree || i != j)                                  #  Check leave-one-out condition;
+        #d = weight(bd.bt, i) * maxDistKer(bd, i, atTree, j)       #  Do direct N^2 kernel evaluation
         maxDistKer!(hdl.restmp, bd, i, atTree, j, addop, diffop)
-        d = bd.bt.weights[i] * hdl.restmp[1]                       #  Do direct N^2 kernel evaluation
-        hdl.pMin[j] = hdl.pMin[j] + d
-        hdl.pMax[j] = hdl.pMax[j] + d
+        # d = bd.bt.weights[i] * hdl.restmp[1]                       #  Do direct N^2 kernel evaluation
+        hdl.restmp[1] *= bd.bt.weights[i]                            #  Do direct N^2 kernel evaluation
+        @inbounds hdl.pMin[j] += hdl.restmp[1] # hdl.pMin[j] + d
+        @inbounds hdl.pMax[j] += hdl.restmp[1] # hdl.pMax[j] + d
       end
     end
 
