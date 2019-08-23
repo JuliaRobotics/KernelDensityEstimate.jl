@@ -42,68 +42,60 @@ function distGauss!(restmp::Array{Float64, 1},
   nothing
 end
 
-minDistGauss!(restmp::Array{Float64, 1},
+function maxDistGauss!(rettmp::Vector{Float64},
                        bd::BallTreeDensity,
                        dRoot::Int,
                        atTree::BallTreeDensity,
                        aRoot::Int,
                        addop=(+,),
-                       diffop=(-,) )::Nothing = distGauss!(restmp,bd,dRoot,atTree,aRoot,bwMax,bwMin,diffop,diffop,true)
+                       diffop=(-,) )::Nothing # = distGauss!(rettmp,bd,dRoot,atTree,aRoot,bwMin,bwMax,addop,diffop)
+  #
+  @fastmath @inbounds begin
+    rettmp[1] = 0.0
+    # TODO upgrade for more general manifolds
+    for k in 1:Ndim(atTree.bt)
+        rettmp[2] = abs( diffop[k]( center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
+        rettmp[2] = addop[k](rettmp[2], rangeB(atTree.bt, aRoot,k) )
+        rettmp[2] = addop[k](rettmp[2], rangeB(bd.bt, dRoot, k) )
+        rettmp[1] += (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
+        if !bwUniform(bd)
+          rettmp[1] += log(bwMax(bd, dRoot, k))
+        end
+    end
+    rettmp[1] = exp(-0.5*rettmp[1])
+  end
+  nothing
+end
 
-  #atCenter = center(atTree, aRoot)
-  #densCenter = center(bd, dRoot)
-  #bw = bwMax(bd, dRoot)
-  # dRoot != 1 && error("dRoot=$dRoot, aRoot=$aRoot")
+function minDistGauss!(restmp::Array{Float64, 1},
+                       bd::BallTreeDensity,
+                       dRoot::Int,
+                       atTree::BallTreeDensity,
+                       aRoot::Int,
+                       addop=(+,),
+                       diffop=(-,) )::Nothing # = distGauss!(restmp,bd,dRoot,atTree,aRoot,bwMax,bwMin,diffop,diffop,true)
+  #
+  @fastmath @inbounds begin
+    restmp[1] = 0.0
+    #tmp = 0.0
+    for k=1:Ndim(atTree.bt)
+      ## TODO upgrade for more general manifolds
+      restmp[2] = abs( diffop[k]( center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
+      restmp[2] = diffop[k](restmp[2], rangeB(atTree.bt, aRoot, k) )
+      restmp[2] = diffop[k](restmp[2], rangeB(bd.bt, dRoot, k) )
+      # reasoning behind saturation not clear (or documented well yet)
+      restmp[2] = (restmp[2] <= 0) ? 0.0 : restmp[2]
+      restmp[1] += (restmp[2]*restmp[2])/bwMax(bd, dRoot, k)
+      if  !bwUniform(bd)
+        restmp[1] += log(bwMin(bd, dRoot, k))
+      end
+    end
+    restmp[1] = exp(-0.5*restmp[1])
+  end
+  nothing
+end
 
-#   @fastmath @inbounds begin
-#     restmp[1] = 0.0
-#     #tmp = 0.0
-#     for k=1:Ndim(atTree.bt)
-#       ## TODO upgrade for more general manifolds
-#       restmp[2] = abs( diffop[k]( center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
-#       restmp[2] = diffop[k](restmp[2], rangeB(atTree.bt, aRoot, k) )
-#       restmp[2] = diffop[k](restmp[2], rangeB(bd.bt, dRoot, k) )
-#       # reasoning behind saturation not clear (or documented well yet)
-#       restmp[2] = (restmp[2] <= 0) ? 0.0 : restmp[2]
-#       restmp[1] += (restmp[2]*restmp[2])/bwMax(bd, dRoot, k)
-#       if  !bwUniform(bd)
-#         restmp[1] += log(bwMin(bd, dRoot, k))
-#       end
-#     end
-#     restmp[1] = exp(-0.5*restmp[1])
-#   end
-#   nothing
-# end
 
-
-maxDistGauss!(rettmp::Vector{Float64},
-              bd::BallTreeDensity,
-              dRoot::Int,
-              atTree::BallTreeDensity,
-              aRoot::Int,
-              addop=(+,),
-              diffop=(-,) )::Nothing = distGauss!(rettmp,bd,dRoot,atTree,aRoot,bwMin,bwMax,addop,diffop)
-
-  #atCenter = center(atTree, aRoot)
-  #densCenter = center(bd, dRoot)
-  #bw = bwMin(bd, dRoot)
-
-#   @fastmath @inbounds begin
-#     rettmp[1] = 0.0
-#     # TODO upgrade for more general manifolds
-#     for k in 1:Ndim(atTree.bt)
-#       rettmp[2] = abs( diffop[k]( center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
-#       rettmp[2] = addop[k](rettmp[2], rangeB(atTree.bt, aRoot,k) )
-#       rettmp[2] = addop[k](rettmp[2], rangeB(bd.bt, dRoot, k) )
-#       rettmp[1] += (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
-#       if !bwUniform(bd)
-#         rettmp[1] += log(bwMax(bd, dRoot, k))
-#       end
-#     end
-#     rettmp[1] = exp(-0.5*rettmp[1])
-#   end
-#   nothing
-# end
 
 #   Bounds on kernel values between points in this subtree & another
 maxDistKer!(rettmp,
