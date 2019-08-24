@@ -229,6 +229,9 @@ function testRand()
   return true
 end
 
+import KernelDensityEstimate: setCutoffOverride
+
+setCutoffOverride(false)
 
 @test UnitTest1D01()
 @test UnitTest1Dlcv01()
@@ -236,6 +239,9 @@ end
 # UnitTest2Dlcv01()
 @test UnitTest2Dvar01()
 #UnitTest2Dvarlcv01()
+
+setCutoffOverride(true)
+
 @test rangeUnitTests()
 @test integralAppxUnitTests()
 

@@ -65,6 +65,7 @@ include("BallTree01.jl")
 include("BallTreeDensity01.jl")
 include("DualTree01.jl")
 include("CrossValidation.jl")
+include("Unused.jl")
 include("KDE01.jl")
 
 include("MSGibbs01.jl")
