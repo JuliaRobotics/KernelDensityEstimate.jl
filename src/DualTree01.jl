@@ -451,15 +451,16 @@ function evalAvgLogL(bd1::BallTreeDensity,
     mask .= (cutoffscale.*mdL) .< dL
     # writedlm("/tmp/dev/dL_$(now()).txt", dL, ',')
     keepratio = len/sum(mask)
-    i = 0
-    while 1.0/keepratio < 0.85 && i < 10
-      i += 1
-      mask .= (0.1*i*cutoffscale.*mdL) .< dL
-      # @show i, sum(mask)
+        # i =
+    if 1.0/keepratio < 0.85
+          #&& i < 10
+          # i += 1
+          # mask .= (0.1*i*cutoffscale.*mdL) .< dL
+      fill!(mask, true)
       keepratio = len/sum(mask)
-      if i == 1
+      # if i == 1
         @warn "evalAvgLogL blocking to keep more than 85% of kernels during self evaluation."
-      end
+      # end
     end
 
     # compensate L with mask
