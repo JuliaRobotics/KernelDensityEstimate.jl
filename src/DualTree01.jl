@@ -439,6 +439,7 @@ function evalAvgLogL(bd1::BallTreeDensity,
   mask = fill!(BitArray{1}(undef, len), true)
   mdL = 0.0
   dL = zeros(len)
+  keepratio = 1.0
   if maskGrad
     bw = bd1.bandwidth
     epsi = 1.0e-5
@@ -449,6 +450,17 @@ function evalAvgLogL(bd1::BallTreeDensity,
     mdL = Statistics.mean(dL) # not sure if we can assume Array{Float64, 1} here
     mask .= (cutoffscale.*mdL) .< dL
     # writedlm("/tmp/dev/dL_$(now()).txt", dL, ',')
+    keepratio = len/sum(mask)
+    i = 0
+    while 1.0/keepratio < 0.85 && i < 10
+      i += 1
+      mask .= (0.1*i*cutoffscale.*mdL) .< dL
+      # @show i, sum(mask)
+      keepratio = len/sum(mask)
+      if i == 1
+        @warn "evalAvgLogL blocking to keep more than 85% of kernels during self evaluation."
+      end
+    end
 
     # compensate L with mask
     L[xor.(mask,true)] .= 1.0
@@ -471,12 +483,7 @@ function evalAvgLogL(bd1::BallTreeDensity,
 
   # check, and do, if compensation is required
   if maskGrad
-    keepratio = len/sum(mask)
     ll *= keepratio
-    if 1.0/keepratio < 0.85
-      @warn "evalAvgLogL ignoring more than 15% of kernels during self evaluation."
-      # @show sum(xor.(mask,true))
-    end
   end
 
   return ll
