@@ -428,7 +428,7 @@ function evalAvgLogL(bd1::BallTreeDensity,
                      addop=(+,),
                      diffop=(-,),
                      maskGrad::Bool=(bd1==bd2),
-                     cutoffscale::Float64=0.03  )
+                     cutoffscale::Float64=0.01  )
   #
   global cutoffOverride
   maskGrad &= cutoffOverride
