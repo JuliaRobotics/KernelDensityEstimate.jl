@@ -417,7 +417,7 @@ end
 #   override
 # end
 
-global cutoffOverride = true
+global cutoffOverride = false
 function setCutoffOverride(x::Bool)
   global cutoffOverride = x
   cutoffOverride
@@ -428,7 +428,7 @@ function evalAvgLogL(bd1::BallTreeDensity,
                      addop=(+,),
                      diffop=(-,),
                      maskGrad::Bool=(bd1==bd2),
-                     cutoffscale::Float64=0.01  )
+                     cutoffscale::Float64=0.02  )
   #
   global cutoffOverride
   maskGrad &= cutoffOverride
