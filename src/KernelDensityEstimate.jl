@@ -50,7 +50,7 @@ export
 
 
 # on-manifold quick fix for avoiding computational geometry speedups, see evaluate(...)
-global FORCE_EVAL_DIRECT = false
+global FORCE_EVAL_DIRECT = true
 
 function setForceEvalDirect!(flag=false)
   global FORCE_EVAL_DIRECT = flag
