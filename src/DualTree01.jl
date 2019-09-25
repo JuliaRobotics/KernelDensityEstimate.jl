@@ -8,92 +8,120 @@ mutable struct pArrHdls
     pErr::Array{Float64,1}
     mini::Array{Float64,1}
     maxi::Array{Float64,1}
+    restmp::Array{Float64,1}
 end
 
-
-
-function minDistGauss!(restmp::Array{Float64, 1},
-                       bd::BallTreeDensity,
-                       dRoot::Int,
-                       atTree::BallTreeDensity,
-                       aRoot::Int,
-                       addop=(+,),
-                       diffop=(-,)  )::Nothing
-  #atCenter = center(atTree, aRoot)
-  #densCenter = center(bd, dRoot)
-  #bw = bwMax(bd, dRoot)
-  # dRoot != 1 && error("dRoot=$dRoot, aRoot=$aRoot")
-
+function distGauss!(restmp::Array{Float64, 1},
+                    bd::BallTreeDensity,
+                    dRoot::Int,
+                    atTree::BallTreeDensity,
+                    aRoot::Int,
+                    minmaxFnc::Function,
+                    minmaxFncUni::Function,
+                    mainop=(-,),
+                    diffop=(-,),
+                    saturate::Bool=false  )::Nothing
+  #
   @fastmath @inbounds begin
     restmp[1] = 0.0
     #tmp = 0.0
     for k=1:Ndim(atTree.bt)
       ## TODO upgrade for more general manifolds
       restmp[2] = abs( diffop[k]( center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
-      restmp[2] = diffop[k](restmp[2], rangeB(atTree.bt, aRoot, k) )
-      restmp[2] = diffop[k](restmp[2], rangeB(bd.bt, dRoot, k) )
-      restmp[2] = (restmp[2] > 0) ? restmp[2] : 0.0
-      if ( bwUniform(bd) )
-        restmp[1] -= (restmp[2]*restmp[2])/bwMax(bd, dRoot, k)
-      else
-        restmp[1] -= (restmp[2]*restmp[2])/bwMax(bd, dRoot, k) + log(bwMin(bd, dRoot, k))
+      restmp[2] = mainop[k](restmp[2], rangeB(atTree.bt, aRoot, k) )
+      restmp[2] = mainop[k](restmp[2], rangeB(bd.bt, dRoot, k) )
+      # reasoning behind saturation for minDistGauss not clear (or well documented yet)
+      restmp[2] = (saturate && (restmp[2] <= 0)) ? 0.0 : restmp[2]
+      restmp[1] += (restmp[2]*restmp[2])/minmaxFnc(bd, dRoot, k)
+      if  !bwUniform(bd)
+        restmp[1] += log(minmaxFncUni(bd, dRoot, k))
       end
     end
-    restmp[1] = exp(0.5*restmp[1])
+    restmp[1] = exp(-0.5*restmp[1])
   end
   nothing
 end
 
-function maxDistGauss!(rettmp::Vector{Float64},
+
+# function
+    maxDistGauss!(rettmp::Vector{Float64},
                        bd::BallTreeDensity,
                        dRoot::Int,
                        atTree::BallTreeDensity,
                        aRoot::Int,
                        addop=(+,),
-                       diffop=(-,)  )::Nothing
-  #atCenter = center(atTree, aRoot)
-  #densCenter = center(bd, dRoot)
-  #bw = bwMin(bd, dRoot)
+                       diffop=(-,) )::Nothing = distGauss!(rettmp,bd,dRoot,atTree,aRoot,bwMin,bwMax,addop,diffop)
+  #
+#   @fastmath @inbounds begin
+#     rettmp[1] = 0.0
+#     # TODO upgrade for more general manifolds
+#     for k in 1:Ndim(atTree.bt)
+#         rettmp[2] = abs( diffop[k]( center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
+#         rettmp[2] = addop[k](rettmp[2], rangeB(atTree.bt, aRoot,k) )
+#         rettmp[2] = addop[k](rettmp[2], rangeB(bd.bt, dRoot, k) )
+#         rettmp[1] += (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
+#         if !bwUniform(bd)
+#           rettmp[1] += log(bwMax(bd, dRoot, k))
+#         end
+#     end
+#     rettmp[1] = exp(-0.5*rettmp[1])
+#   end
+#   nothing
+# end
 
-  rettmp[1] = 0.0
-  @fastmath @inbounds begin for k in 1:Ndim(atTree.bt)
-      # TODO upgrade for more general manifolds
-      rettmp[2] = abs( diffop[k](center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
-      rettmp[2] = addop[k](rettmp[2], rangeB(atTree.bt, aRoot,k) )
-      rettmp[2] = addop[k](rettmp[2], rangeB(bd.bt, dRoot, k) )
-      if ( bwUniform(bd) )
-          rettmp[1] -= (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
-      else
-          # TODO - Root not defined here
-          rettmp[1] -= (rettmp[2]*rettmp[2])/(bwMin(bd, dRoot, k)) + (log(bwMax(bd.bt, dRoot, k)))
-      end
-    end
-  end
-  rettmp[1] = exp(rettmp[1]/2.0)
-  nothing
-end
+# function
+    minDistGauss!(restmp::Array{Float64, 1},
+                       bd::BallTreeDensity,
+                       dRoot::Int,
+                       atTree::BallTreeDensity,
+                       aRoot::Int,
+                       addop=(+,),
+                       diffop=(-,) )::Nothing = distGauss!(restmp,bd,dRoot,atTree,aRoot,bwMax,bwMin,diffop,diffop,true)
+  #
+#   @fastmath @inbounds begin
+#     restmp[1] = 0.0
+#     #tmp = 0.0
+#     for k=1:Ndim(atTree.bt)
+#       ## TODO upgrade for more general manifolds
+#       restmp[2] = abs( diffop[k]( center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
+#       restmp[2] = diffop[k](restmp[2], rangeB(atTree.bt, aRoot, k) )
+#       restmp[2] = diffop[k](restmp[2], rangeB(bd.bt, dRoot, k) )
+#       # reasoning behind saturation not clear (or documented well yet)
+#       restmp[2] = (restmp[2] <= 0) ? 0.0 : restmp[2]
+#       restmp[1] += (restmp[2]*restmp[2])/bwMax(bd, dRoot, k)
+#       if  !bwUniform(bd)
+#         restmp[1] += log(bwMin(bd, dRoot, k))
+#       end
+#     end
+#     restmp[1] = exp(-0.5*restmp[1])
+#   end
+#   nothing
+# end
+
+
 
 #   Bounds on kernel values between points in this subtree & another
-function maxDistKer!(rettmp, bd::BallTreeDensity,
-                     dRoot::Int,
-                     atTree::BallTreeDensity,
-                     aRoot::Int,
-                     addop=(+,),
-                     diffop=(-,) )
-  maxDistGauss!(rettmp, bd, dRoot, atTree, aRoot, addop, diffop)
-  nothing
-end
+maxDistKer!(rettmp,
+            bd::BallTreeDensity,
+            dRoot::Int,
+            atTree::BallTreeDensity,
+            aRoot::Int,
+            addop=(+,),
+            diffop=(-,) ) = maxDistGauss!(rettmp, bd, dRoot, atTree, aRoot, addop, diffop)
 
-function minDistKer!(rettmp,
-                     bd::BallTreeDensity,
-                     dRoot::Int,
-                     atTree::BallTreeDensity,
-                     aRoot::Int,
-                     addop=(+,),
-                     diffop=(-,)  )
-  minDistGauss!(rettmp, bd, dRoot, atTree, aRoot, addop, diffop)
-  nothing
-end
+#   nothing
+# end
+
+minDistKer!(rettmp,
+            bd::BallTreeDensity,
+            dRoot::Int,
+            atTree::BallTreeDensity,
+            aRoot::Int,
+            addop=(+,),
+            diffop=(-,) ) = minDistGauss!(rettmp, bd, dRoot, atTree, aRoot, addop, diffop)
+
+#   nothing
+# end
 
 function pushDownLocal(atTree::BallTreeDensity, aRoot::Int, hdl::pArrHdls)
     if !(isLeaf(atTree, aRoot))
@@ -139,19 +167,21 @@ function evalDirect(bd::BallTreeDensity,
                     addop=(+,),
                     diffop=(-,)  )
   #
-  firstFlag = true;
+  # firstFlag = true;
   minVal=2e22;
   maxVal=0.0;
-  restmp = Array{Float64,1}(undef, 2)
-  d = 0.0
+  # restmp = Array{Float64,1}(undef, 2)
+  # d = 0.0
   for j in leafFirst(atTree.bt, aRoot):leafLast(atTree.bt, aRoot)
     for i in leafFirst(bd.bt,dRoot):leafLast(bd.bt, dRoot)
-      if (bd != atTree || i != j)                              # Check leave-one-out condition;
-        #d = weight(bd.bt, i) * maxDistKer(bd, i, atTree, j)   #  Do direct N^2 kernel evaluation
-        maxDistKer!(restmp, bd, i, atTree, j, addop, diffop)
-        d = bd.bt.weights[i] * restmp[1]                       #  Do direct N^2 kernel evaluation
-        hdl.pMin[j] = hdl.pMin[j] + d
-        hdl.pMax[j] = hdl.pMax[j] + d
+      # TODO PoC sensitivity weighting here
+      if (bd != atTree || i != j)                                  #  Check leave-one-out condition;
+        #d = weight(bd.bt, i) * maxDistKer(bd, i, atTree, j)       #  Do direct N^2 kernel evaluation
+        maxDistKer!(hdl.restmp, bd, i, atTree, j, addop, diffop)
+        # d = bd.bt.weights[i] * hdl.restmp[1]                       #  Do direct N^2 kernel evaluation
+        hdl.restmp[1] *= bd.bt.weights[i]                            #  Do direct N^2 kernel evaluation
+        @inbounds hdl.pMin[j] += hdl.restmp[1] # hdl.pMin[j] + d
+        @inbounds hdl.pMax[j] += hdl.restmp[1] # hdl.pMax[j] + d
       end
     end
 
@@ -266,7 +296,7 @@ function evaluate(bd::BallTreeDensity,
 
   # TODO Nixies Issue -- proper way to compute on-manifold distances between balls
   if !FORCE_EVAL_DIRECT
-    restmp = Array{Float64,1}(undef, 2)
+    restmp = hdl.restmp # Array{Float64,1}(undef, 2)
 
     # find the minimum and maximum effect of these two balls on each other
     minDistKer!(restmp, bd, dRoot, atTree, aRoot, addopT, diffopT)
@@ -318,7 +348,8 @@ function evaluate(bd::BallTreeDensity,
                  zeros(2*locations.bt.num_points),
                  zeros(1,0), #zeros(1,2*locations.bt.dims),
                  zeros(0),   #zeros(2*locations.bt.num_points),
-                 [0.], [0.])
+                 [0.], [0.],
+                 zeros(2))
   #
   evaluate(bd, root(), locations, root(), 2.0*maxErr, hdl, addop, diffop)
 
@@ -359,6 +390,15 @@ function makeDualTree(bd1::BallTreeDensity,
     return pRes
 end
 
+function makeDualTree(bd::BallTreeDensity, errTol::Float64, addop=(+,), diffop=(-,))
+    #densTree = bd ## just a new pointer to the same data...
+    pRes = zeros(Npts(bd))
+    #println("makeDualTree -- leave one out, going to call evaluate(densTree")
+    evaluate(bd, bd, pRes, errTol, addop, diffop) # this seems excessive
+
+    return pRes
+end
+
 function evaluateDualTree(bd::BallTreeDensity,
                           pos::Array{Float64,2},
                           lvFlag::Bool=false,
@@ -395,14 +435,6 @@ function evaluateDualTree(bd::BallTreeDensity,
     return evaluateDualTree(bd, pos2, lvFlag, errTol, addop, diffop)
 end
 
-function makeDualTree(bd::BallTreeDensity, errTol::Float64, addop=(+,), diffop=(-,))
-    #densTree = bd ## just a new pointer to the same data...
-    pRes = zeros(Npts(bd))
-    #println("makeDualTree -- leave one out, going to call evaluate(densTree")
-    evaluate(bd, bd, pRes, errTol, addop, diffop) # this seems excessive
-
-    return pRes
-end
 
 function evaluateDualTree(bd::BallTreeDensity,
                           pos::BallTreeDensity,
