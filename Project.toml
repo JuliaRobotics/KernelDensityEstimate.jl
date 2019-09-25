@@ -1,5 +1,8 @@
 name = "KernelDensityEstimate"
 uuid = "2472808a-b354-52ea-a80e-1658a3c6056d"
+keywords = ["NBP", "nonparametric", "kernel density", "functional products", "multiscale", "Gibbs sampling", "KDE"]
+desc = "A modified version of the multiscale Gibbs product and KDE"
+version = "0.5.1"
 
 [deps]
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
