@@ -540,7 +540,7 @@ function entropy(bd::BallTreeDensity, addop=(+,), diffop=(-,))
     return H[1]
 end
 
-
+minkld(p::BallTreeDensity,q::BallTreeDensity) = minimum(abs.([kld(p,q);kld(q,p)]))
 
 function getKDERange(bd::BallTreeDensity; extend::Float64=0.1, addop=(+,), diffop=(-,) )
   rangeV = nothing
