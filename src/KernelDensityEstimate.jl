@@ -36,6 +36,7 @@ export
     getKDEMean,
     getKDEfit,
     kld,
+    minkld,
     evalAvgLogL,
     # approximate intersection volume
     intersIntgAppxIS,
