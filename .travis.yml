@@ -4,6 +4,10 @@ os:
   - linux
   - osx
 
+arch:
+  - amd64
+  - arm64
+
 julia:
   - 0.7
   - 1.0
@@ -16,6 +20,7 @@ matrix:
   allow_failures:
     - os: osx
     - julia: nightly
+    - arch: arm64
 
 notifications:
   email: false
