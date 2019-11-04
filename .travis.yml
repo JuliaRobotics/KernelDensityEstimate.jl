@@ -26,5 +26,8 @@ notifications:
 #   # - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 #   # - julia --check-bounds=yes -e 'using Pkg; Pkg.develop("KernelDensityEstimate"); Pkg.test("KernelDensityEstimate"; coverage=true)'
 
+jobs:
+  fast_finish: true
+
 after_success:
   - julia -e 'using Pkg; cd(Pkg.dir("KernelDensityEstimate")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
