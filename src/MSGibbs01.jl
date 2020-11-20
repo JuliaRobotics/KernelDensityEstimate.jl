@@ -1,47 +1,47 @@
 mutable struct GbGlb
-    # REMEMBER -- all multi-dim arrays are column-indexing!  [i,j] => [j*N+i]
-    particles::Array{Float64,1} # [Ndim x Ndens]      // means of selected particles
-    variance::Array{Float64,1}  # [Ndim x Ndens]      //   variance of selected particles
-    p::Array{Float64,1}         # [Np]                // probability of ith kernel
-    ind::Array{Int,1}           # current indexes of MCMC step
-    Malmost::Array{Float64,1}
-    Calmost::Array{Float64,1}   #[Ndim x 1]   // Means & Cov. of all indices but j^th
-    # Random number callback
-    randU::Array{Float64,1}     # [Npoints * Ndens * (Niter+1)] uniformly distrib'd random variables
-    randN::Array{Float64,1}     # [Ndim * Npoints] normally distrib'd random variables
-    Ndim::Int
-    Ndens::Int
-    Nlevels::Int
-    dNp::Int
-    newPoints::Array{Float64,1}
-    newWeights::Array{Float64,1}
-    newIndices::Array{Int,2}
-    trees::Array{BallTreeDensity,1}
-    levelList::Array{Int,2}
-    levelListNew::Array{Int,2}
-    dNpts::Array{Int,1}         # ? how many points at current level in tree
-    ruptr::Int
-    rnptr::Int
-    mn::Vector{Float64}
-    vn::Vector{Float64}
-    calclambdas::Vector{Float64}
-    calcmu::Vector{Float64}
-    # labelsChoosen[sample][densityId][level]
-    labelsChoosen::Dict{Int,Dict{Int,Dict{Int,Int}}}
-    recordChoosen::Bool
+  # REMEMBER -- all multi-dim arrays are column-indexing!  [i,j] => [j*N+i]
+  particles::Array{Float64,2} # Array{Float64,1} # [Ndim x Ndens]      // means of selected particles
+  variance::Array{Float64,2}  # Array{Float64,1}  # [Ndim x Ndens]      //   variance of selected particles
+  p::Array{Float64,1}         # [Np]                // probability of ith kernel
+  ind::Array{Int,1}           # current indexes of MCMC step
+  Malmost::Array{Float64,2}
+  Calmost::Array{Float64,1}   #[Ndim x 1]   // Means & Cov. of all indices but j^th
+  # Random number callback
+  randU::Array{Float64,1}     # [Npoints * Ndens * (Niter+1)] uniformly distrib'd random variables
+  randN::Array{Float64,1}     # [Ndim * Npoints] normally distrib'd random variables
+  Ndim::Int
+  Ndens::Int
+  Nlevels::Int
+  dNp::Int
+  newPoints::Array{Float64,2}
+  newWeights::Array{Float64,1}
+  newIndices::Array{Int,2}    # final labels choosen per [sample, density] 
+  trees::Array{BallTreeDensity,1}
+  levelList::Array{Int,2}
+  levelListNew::Array{Int,2}
+  dNpts::Array{Int,1}         # ? how many points at current level in tree
+  ruptr::Int
+  rnptr::Int
+  mn::Vector{Float64}
+  vn::Vector{Float64}
+  calclambdas::Vector{Float64}
+  calcmu::Vector{Float64}
+  # labelsChoosen[sample][densityId][level]
+  labelsChoosen::Dict{Int,Dict{Int,Dict{Int,Int}}}
+  recordChoosen::Bool
 end
 
 function makeEmptyGbGlb()
-    return GbGlb(zeros(0),
-                zeros(0),
+  return GbGlb( zeros(0,0),
+                zeros(0,0),
                 zeros(0),
                 zeros(Int,0),
-                zeros(0),
+                zeros(0,0),
                 zeros(0),
                 zeros(0),
                 zeros(0),
                 0,0,0,0,
-                zeros(0),
+                zeros(0,0),
                 zeros(0),
                 ones(Int,0,0),
                 Vector{BallTreeDensity}(undef, 1),
@@ -80,10 +80,11 @@ mutable struct MSCompOpt
 end
 
 
-function updateGlbParticlesVariance!(glb::GbGlb, j::Int)::Nothing
+function updateGlbParticlesVariance!(glb::GbGlb, j::Int)
   for dim in 1:glb.Ndim
-    glb.particles[dim+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], dim)
-    glb.variance[dim+glb.Ndim*(j-1)]  = bw(glb.trees[j], glb.ind[j], dim)
+    glb.particles[dim,j] = mean(glb.trees[j], glb.ind[j], dim)
+    # glb.particles[dim+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], dim)
+    glb.variance[dim,j]  = bw(glb.trees[j], glb.ind[j], dim)
   end
   nothing
 end
@@ -146,45 +147,45 @@ Notes
 """
 function gaussianProductMeanCov!( glb::GbGlb,
                                   dim::Int,
-                                  destMu::Vector{Float64},
+                                  destMu::Array{Float64},
                                   destCov::Vector{Float64},
-                                  idx::Int,
+                                  offset::Int,
                                   skip::Int,
                                   addop=+,  # currently not required -- baked into getMu
                                   getMu::Function=getEuclidMu,
                                   getLambda::Function=getEuclidLambda  )::Nothing
   #
-  destMu[idx] = 0.0;
-  destCov[idx] = 0.0;
+  destMu[offset] = 0.0;
+  destCov[offset] = 0.0;
   # Compute mean and variances (product) of selected particles
   if false
     # @inbounds @fastmath @simd for j in 1:glb.Ndens
     #   if (j!=skip)
     #     # TODO: change to on-manifold operation
-    #     destCov[idx] += 1.0/glb.variance[dim+glb.Ndim*(j-1)]
-    #     destMu[idx] = addop(destMu[idx], glb.particles[dim+glb.Ndim*(j-1)]/glb.variance[dim+glb.Ndim*(j-1)])
+    #     destCov[offset] += 1.0/glb.variance[dim+glb.Ndim*(j-1)]
+    #     destMu[offset] = addop(destMu[offset], glb.particles[dim+glb.Ndim*(j-1)]/glb.variance[dim+glb.Ndim*(j-1)])
     #   end
     # end
-    # destCov[idx] = 1.0/destCov[idx];
-    # destMu[idx] *= destCov[idx];
+    # destCov[offset] = 1.0/destCov[offset];
+    # destMu[offset] *= destCov[offset];
   else
     # on manifold development
     @inbounds @fastmath @simd for j in 1:glb.Ndens
       if (j!=skip)
-        glb.calclambdas[j] = 1.0/glb.variance[dim+glb.Ndim*(j-1)]
-        glb.calcmu[j] = glb.particles[dim+glb.Ndim*(j-1)]
+        glb.calclambdas[j] = 1.0/glb.variance[dim,j]
+        glb.calcmu[j] = glb.particles[dim,j] #[dim+glb.Ndim*(j-1)]
       else
         # adding zeros does not influence the result because `lambda_i = 0`
         glb.calclambdas[j] = 0.0
         glb.calcmu[j] = 0.0
       end
     end
-    @inbounds destCov[idx] = getLambda(glb.calclambdas)
-    @inbounds destCov[idx] = 1.0/destCov[idx]
+    @inbounds destCov[offset] = getLambda(glb.calclambdas)
+    @inbounds destCov[offset] = 1.0/destCov[offset]
     # μ = 1/Λ * Λμ  ## i.e. already scaled to mean only
-    @inbounds destMu[idx] = getMu(glb.calcmu, glb.calclambdas, destCov[idx])
-    # destMu[idx] = destCov[idx]*getMu(glb.calcmu, glb.calclambdas)
-    # destMu[idx] = getMu(glb.calcmu, glb.calclambdas)
+    @inbounds destMu[offset] = getMu(glb.calcmu, glb.calclambdas, destCov[offset])
+    # destMu[offset] = destCov[offset]*getMu(glb.calcmu, glb.calclambdas)
+    # destMu[offset] = getMu(glb.calcmu, glb.calclambdas)
   end
   nothing
 end
@@ -224,7 +225,7 @@ Development Notes
 function makeFasterSampleIndex!(j::Int,
                                 cmo::MSCompOpt,
                                 glb::GbGlb,
-                                muValue::Vector{Float64},
+                                muValue::Array{Float64},
                                 covValue::Vector{Float64},
                                 offset::Int=0,
                                 diffop=(-,),
@@ -304,10 +305,10 @@ Notes
 - This function does kernel evaluation internally.
 - Does not have a loo skip step.
 """
-function sampleIndices!(X::Array{Float64,1},
+function sampleIndices!(X::Array{Float64,2},
                         cmoi::MSCompOpt,
                         glb::GbGlb,
-                        offset::Int,
+                        offset::Int, # offset
                         diffop=(-,)  )
   #
 
@@ -351,7 +352,8 @@ function sampleIndex( j::Int,
                       glb::GbGlb,
                       addop=(+,), diffop=(-,),
                       getMu=(getEuclidMu,),
-                      getLambda=(getEuclidLambda,)  )::Nothing
+                      getLambda=(getEuclidLambda,)  )
+  #
   # determine product of selected kernel-labels from all but jth density (leave out)
   for i in 1:glb.Ndim
     gaussianProductMeanCov!(glb, i, glb.Malmost, glb.Calmost, i, j, addop[i], getMu[i], getLambda[i] )
@@ -381,19 +383,24 @@ Sampling a point from the product of kernels (density components) listed in `glb
 
 Manifold defined by `addop`, `getMu`, and `getLambda`.
 """
-function samplePoint!(X::Array{Float64,1},
+function samplePoint!(X::Array{Float64,2},
                       glb::GbGlb,
-                      frm::Int,
+                      idx::Int,
                       addop::Tuple=(+,),
                       getMu::Tuple=(getEuclidMu,),
-                      getLambda::Tuple=(getEuclidLambda,) )
+                      getLambda::Tuple=(getEuclidLambda,),
+                      addEntropy::Bool=true  )
   #
   for dim in 1:glb.Ndim
     # Calculate on-manifold mean and covariance.  Does not skip a density here -- i.e. skip = -1;  see `sampleIndex(...)`
     gaussianProductMeanCov!(glb, dim, glb.mn, glb.vn, 1, -1, addop[dim], getMu[dim], getLambda[dim] ) # getMeanCovDens!
     # then draw a sample from it
     glb.rnptr += 1
-    X[dim+frm] = addop[dim](glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] ) #counter
+    X[dim,idx] = if addEntropy
+      addop[dim](glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] )
+    else
+      glb.mn[1]
+    end
   end
   return nothing
 end
@@ -462,102 +469,103 @@ end
 
 function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
                 Np::Int, Niter::Int,
-                pts::Array{Float64,1}, ind::Array{Int},
+                pts::Array{Float64,2}, ind::Array{Int},
                 randU::Array{Float64,1}, randN::Array{Float64,1};
                 addop=(+,), diffop=(-,),
                 getMu=(getEuclidMu,),
                 getLambda=(getEuclidLambda,),
-                glbs = makeEmptyGbGlb()  )
-    #
-    
-    # number densities in the product
-    glbs.Ndens = Ndens
-    # the actual BTD data
-    glbs.trees = trees
-    # location for final posterior product samples
-    glbs.newPoints = pts
-    # REMEMBER -- all multi-dim arrays are column-indexing!  [i,j] => [j*N+i]
-    glbs.newIndices = ind # reshape(ind, Ndens, :)
-    # preemptive entropy for use during calculation
-    glbs.randU = randU
-    glbs.randN = randN
-    # the dimension of the incoming densities
-    glbs.Ndim = trees[1].bt.dims
+                glbs = makeEmptyGbGlb(),
+                addEntropy::Bool=true  )
+  #
+  
+  # number densities in the product
+  glbs.Ndens = Ndens
+  # the actual BTD data
+  glbs.trees = trees
+  # location for final posterior product samples
+  glbs.newPoints = pts
+  # REMEMBER -- all multi-dim arrays are column-indexing!  [i,j] => [j*N+i]
+  glbs.newIndices = ind # reshape(ind, Ndens, :)
+  # preemptive entropy for use during calculation
+  glbs.randU = randU
+  glbs.randN = randN
+  # the dimension of the incoming densities
+  glbs.Ndim = trees[1].bt.dims
 
-    maxNp = 0                         # largest # of particles we deal with
-    for tree in trees
-        if (maxNp < Npts(tree))
-            maxNp = Npts(tree)
-        end
-    end
+  maxNp = 0                         # largest # of particles we deal with
+  for tree in trees
+      if (maxNp < Npts(tree))
+          maxNp = Npts(tree)
+      end
+  end
 
-    glbs.ind = ones(Int,Ndens)
-    glbs.p = zeros(maxNp)
-    glbs.Malmost = zeros(glbs.Ndim)
-    glbs.Calmost = zeros(glbs.Ndim)
-    glbs.calcmu = zeros(glbs.Ndens)
-    glbs.calclambdas = zeros(glbs.Ndens)
-    glbs.Nlevels = floor(Int,((log(maxNp)/log(2))+1))
-    # working memory where kernels are multiplied together
-    glbs.particles = zeros(glbs.Ndim*Ndens)
-    glbs.variance  = zeros(glbs.Ndim*Ndens)
-    glbs.dNpts = zeros(Int,Ndens)
-    glbs.levelList = ones(Int,Ndens,maxNp)
-    glbs.levelListNew = ones(Int,Ndens,maxNp)
-    glbs.labelsChoosen = Dict{Int,Dict{Int,Dict{Int,Int}}}()
+  glbs.ind = ones(Int,Ndens)
+  glbs.p = zeros(maxNp)
+  glbs.Malmost = zeros(glbs.Ndim, 1)
+  glbs.Calmost = zeros(glbs.Ndim)
+  glbs.calcmu = zeros(glbs.Ndens)
+  glbs.calclambdas = zeros(glbs.Ndens)
+  glbs.Nlevels = floor(Int,((log(maxNp)/log(2))+1))
+  # working memory where kernels are multiplied together
+  glbs.particles = zeros(glbs.Ndim, Ndens) # zeros(glbs.Ndim*Ndens)
+  glbs.variance  = zeros(glbs.Ndim, Ndens)
+  glbs.dNpts = zeros(Int,Ndens)
+  glbs.levelList = ones(Int,Ndens,maxNp)
+  glbs.levelListNew = ones(Int,Ndens,maxNp)
+  glbs.labelsChoosen = Dict{Int,Dict{Int,Dict{Int,Int}}}()
 
-    cmo = MSCompOpt(0.0, 0.0, 0.0)
-    cmoi = MSCompOpt(0.0, 0.0, 0.0)
+  cmo = MSCompOpt(0.0, 0.0, 0.0)
+  cmoi = MSCompOpt(0.0, 0.0, 0.0)
 
-    # loop for all output kernels in product (how many samples do you want from product)
-    for s in 1:Np
-        glbs.labelsChoosen[s] = Dict{Int, Dict{Int,Int}}()
-        # index of where to put new sampled point in final posterior product
-        frm = ((s-1)*glbs.Ndim)
+  # loop for all output kernels in product (how many samples do you want from product)
+  for s in 1:Np
+    glbs.labelsChoosen[s] = Dict{Int, Dict{Int,Int}}()
+    # index of where to put new sampled point in final posterior product
+    frm = ((s-1)*glbs.Ndim)
 
-        # initial assignments
-        levelInit!(glbs, s)
-        initIndices!(glbs)
-        calcIndices!(glbs)
+    # initial assignments
+    levelInit!(glbs, s)
+    initIndices!(glbs)
+    calcIndices!(glbs)
 
-        # iterate down multi-scales of the Ball (k-d) tree (of the posterior belief?)
-        for l in 1:glbs.Nlevels
-          # multiply selected kernels from incoming densities, and sample a new point from the product.
-          samplePoint!(glbs.newPoints, glbs, frm, addop, getMu, getLambda )
+    # iterate down multi-scales of the Ball (k-d) tree (of the posterior belief?)
+    for l in 1:glbs.Nlevels
+      # multiply selected kernels from incoming densities, and sample a new point from the product.
+      samplePoint!(glbs.newPoints, glbs, s, addop, getMu, getLambda ) # frm
 
-          # step a level down in the tree
-          levelDown!(glbs);
+      # step a level down in the tree
+      levelDown!(glbs);
 
-          # ??
-          sampleIndices!(glbs.newPoints, cmoi, glbs, frm, diffop);
+      # ??
+      sampleIndices!(glbs.newPoints, cmoi, glbs, s, diffop); frm
 
-          ## Sequential Gibbs logic where LOO element is rotated through all densities Niter times
-          # After T iters, selected a kernel from each density
-          @inbounds @fastmath for i in 1:Niter
-            for j in 1:glbs.Ndens
-              # pick a new label (kernel_i) from the LOO density (j) -- assumed leave in Gaussian product already computed
-              sampleIndex(j, cmo, glbs, addop, diffop, getMu, getLambda );
-            end
-          end
-        end
-
+      ## Sequential Gibbs logic where LOO element is rotated through all densities Niter times
+      # After T iters, selected a kernel from each density
+      @inbounds @fastmath for i in 1:Niter
         for j in 1:glbs.Ndens
-          # return particle label
-          # REMEMBER -- all multi-dim arrays are column-indexing!  [i,j] => [j*N+i]
-          glbs.newIndices[j,s] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;
-          # glbs.newIndices[(s-1)*glbs.Ndens+j] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;
-          
-          if glbs.recordChoosen
-            glbs.labelsChoosen[s][j][glbs.Nlevels+1] = glbs.newIndices[j,s]
-          end
+          # pick a new label (kernel_i) from the LOO density (j) -- assumed leave in Gaussian product already computed
+          sampleIndex(j, cmo, glbs, addop, diffop, getMu, getLambda );
         end
-
-        # take Gaussian product from a kernel component in all densities (inside samplePoint ??)
-        # and then sample a value from new posterior kernel
-        samplePoint!(glbs.newPoints, glbs, frm, addop, getMu, getLambda );
+      end
     end
-    glbs = 0
-    nothing
+
+    for j in 1:glbs.Ndens
+      # return particle label
+      # REMEMBER -- all multi-dim arrays are column-indexing!  [i,j] => [j*N+i]
+      glbs.newIndices[j,s] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;
+      # glbs.newIndices[(s-1)*glbs.Ndens+j] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;
+      
+      if glbs.recordChoosen
+        glbs.labelsChoosen[s][j][glbs.Nlevels+1] = glbs.newIndices[j,s]
+      end
+    end
+
+    # take Gaussian product from a kernel component in all densities (inside samplePoint ??)
+    # and then sample a value from new posterior kernel
+    samplePoint!(glbs.newPoints, glbs, s, addop, getMu, getLambda, addEntropy); # frm
+  end
+  glbs = 0
+  nothing
 end
 
 
@@ -583,57 +591,59 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
                           diffop::T2=(-,),
                           getMu::T3=(getEuclidMu,),
                           getLambda::T4=(getEuclidLambda,),
-                          glbs = makeEmptyGbGlb()  ) where {T1<:Tuple,T2<:Tuple,T3<:Tuple,T4<:Tuple}
-    #
-    #
-    
-    
-    # See  Ihler,Sudderth,Freeman,&Willsky, "Efficient multiscale sampling from products
-    #         of Gaussian mixtures", in Proc. Neural Information Processing Systems 2003
-    Ndens = length(trees)              # of densities
-    Ndim  = trees[1].bt.dims           # of dimensions
-    Np    = Npts(npd0)                # of points to sample
+                          glbs = makeEmptyGbGlb(),
+                          addEntropy::Bool=true  ) where {T1<:Tuple,T2<:Tuple,T3<:Tuple,T4<:Tuple}
+  #
+  #
+  
+  
+  # See  Ihler,Sudderth,Freeman,&Willsky, "Efficient multiscale sampling from products
+  #         of Gaussian mixtures", in Proc. Neural Information Processing Systems 2003
+  Ndens = length(trees)              # of densities
+  Ndim  = trees[1].bt.dims           # of dimensions
+  Np    = Npts(npd0)                # of points to sample
 
-    # prepare stack manifold add and diff operations functions (manifolds must match dimension)
-    addopT = length(addop)!=Ndim ? ([ (addop[1]) for i in 1:Ndim]...,) : addop
-    diffopT = length(diffop)!=Ndim ? ([ (diffop[1]) for i in 1:Ndim]...,) : diffop
-    getMuT = length(getMu)!=Ndim ? ([ getMu[1] for i in 1:Ndim]...,) : getMu
-    getLambdaT = length(getLambda)!=Ndim ? ([ getLambda[1] for i in 1:Ndim]...,) : getLambda
+  # prepare stack manifold add and diff operations functions (manifolds must match dimension)
+  addopT = length(addop)!=Ndim ? ([ (addop[1]) for i in 1:Ndim]...,) : addop
+  diffopT = length(diffop)!=Ndim ? ([ (diffop[1]) for i in 1:Ndim]...,) : diffop
+  getMuT = length(getMu)!=Ndim ? ([ getMu[1] for i in 1:Ndim]...,) : getMu
+  getLambdaT = length(getLambda)!=Ndim ? ([ getLambda[1] for i in 1:Ndim]...,) : getLambda
 
-    # skipping analytic functions for now TODO ??
-    UseAn = false
-    #??pointsM = zeros(Ndim, Np)
-    points = zeros(Ndim*Np)
-    #??plhs[1] = mxCreateNumericMatrix(Ndens, Np, mxUINT32_CLASS, mxREAL);
-    indices=ones(Int,Ndens, Np)
-    maxNp = Np
-    for tree in trees
-        if (maxNp < Npts(tree))
-            maxNp = Npts(tree)
-        end
+  # skipping analytic functions for now TODO ??
+  UseAn = false
+  #??pointsM = zeros(Ndim, Np)
+  points = zeros(Ndim, Np)
+  #??plhs[1] = mxCreateNumericMatrix(Ndens, Np, mxUINT32_CLASS, mxREAL);
+  indices=ones(Int,Ndens, Np)
+  maxNp = Np
+  for tree in trees
+    if (maxNp < Npts(tree))
+      maxNp = Npts(tree)
     end
+  end
 
-    # how many levels to a balanced binary tree?
-    Nlevels = floor(Int,(log(Float64(maxNp))/log(2.0))+1.0)
+  # how many levels to a balanced binary tree?
+  Nlevels = floor(Int,(log(Float64(maxNp))/log(2.0))+1.0)
 
-    # Generate enough random numbers to get us through the rest of this
-    if true
-      randU = rand(Int(Np*Ndens*(Niter+2)*Nlevels))
-      randN = randn(Int(Ndim*Np*(Nlevels+1)))
-    else
-      # FIXME using DelimitedFiles
-      randU = vec(readdlm("randU.csv"))
-      randN = vec(readdlm("randN.csv"))
-    end
+  # Generate enough random numbers to get us through the rest of this
+  if true
+    randU = rand(Int(Np*Ndens*(Niter+2)*Nlevels))
+    randN = randn(Int(Ndim*Np*(Nlevels+1)))
+  else
+    # FIXME using DelimitedFiles
+    randU = vec(readdlm("randU.csv"))
+    randN = vec(readdlm("randN.csv"))
+  end
 
-    gibbs1(Ndens, trees, Np, Niter, points, indices, randU, randN, addop=addopT, diffop=diffopT, getMu=getMuT, getLambda=getLambdaT, glbs=glbs );
-    return reshape(points, Ndim, Np), indices  # reshape(indices, Ndens, Np)
+  gibbs1(Ndens, trees, Np, Niter, points, indices, randU, randN, addop=addopT, diffop=diffopT, getMu=getMuT, getLambda=getLambdaT, glbs=glbs, addEntropy=addEntropy );
+  return reshape(points, Ndim, Np), indices
 end
 
 
 
 function *( trees::Vector{BallTreeDensity};
-            glbs = makeEmptyGbGlb() )
+            glbs = makeEmptyGbGlb(),
+            addEntropy::Bool=true )
   #
   numpts = round(Int, Statistics.mean(Npts.(trees)))
   d = Ndim(trees[1])
@@ -641,7 +651,7 @@ function *( trees::Vector{BallTreeDensity};
     d != Ndim(p) ? error("kdes must have same dimension") : nothing
   end
   dummy = kde!(rand(d,numpts),[1.0]);
-  pGM, = prodAppxMSGibbsS(dummy, trees, nothing, nothing, Niter=5, glbs=glbs)
+  pGM, = prodAppxMSGibbsS(dummy, trees, nothing, nothing, Niter=5, glbs=glbs, addEntropy=addEntropy)
   return kde!(pGM)
 end
 
