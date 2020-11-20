@@ -396,7 +396,7 @@ function samplePoint!(X::Array{Float64,1},
     gaussianProductMeanCov!(glb, dim, glb.mn, glb.vn, 1, -1, addop[dim], getMu[dim], getLambda[dim] ) # getMeanCovDens!
     # then draw a sample from it
     glb.rnptr += 1
-    X[dim*idx] = if addEntropy
+    X[dim+idx] = if addEntropy
       addop[dim](glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] )
     else
       glb.mn[1]
