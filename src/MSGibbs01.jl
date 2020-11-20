@@ -13,7 +13,7 @@ mutable struct GbGlb
     Ndens::Int
     Nlevels::Int
     dNp::Int
-    newPoints::Array{Float64,1}
+    newPoints::Array{Float64,2}
     newWeights::Array{Float64,1}
     newIndices::Array{Int,2}    # final labels choosen per [sample, density] 
     trees::Array{BallTreeDensity,1}
@@ -41,7 +41,7 @@ function makeEmptyGbGlb()
                 zeros(0),
                 zeros(0),
                 0,0,0,0,
-                zeros(0),
+                zeros(0,0),
                 zeros(0),
                 ones(Int,0,0),
                 Vector{BallTreeDensity}(undef, 1),
@@ -225,7 +225,7 @@ Development Notes
 function makeFasterSampleIndex!(j::Int,
                                 cmo::MSCompOpt,
                                 glb::GbGlb,
-                                muValue::Vector{Float64},
+                                muValue::AbstractArray{<:Real},
                                 covValue::Vector{Float64},
                                 offset::Int=0,
                                 diffop=(-,),
@@ -305,7 +305,7 @@ Notes
 - This function does kernel evaluation internally.
 - Does not have a loo skip step.
 """
-function sampleIndices!(X::Array{Float64,1},
+function sampleIndices!(X::AbstractArray{<:Real},
                         cmoi::MSCompOpt,
                         glb::GbGlb,
                         offset::Int,
@@ -383,7 +383,7 @@ Sampling a point from the product of kernels (density components) listed in `glb
 
 Manifold defined by `addop`, `getMu`, and `getLambda`.
 """
-function samplePoint!(X::Array{Float64,1},
+function samplePoint!(X::Matrix{<:Real},
                       glb::GbGlb,
                       idx::Int,
                       addop::Tuple=(+,),
@@ -396,7 +396,7 @@ function samplePoint!(X::Array{Float64,1},
     gaussianProductMeanCov!(glb, dim, glb.mn, glb.vn, 1, -1, addop[dim], getMu[dim], getLambda[dim] ) # getMeanCovDens!
     # then draw a sample from it
     glb.rnptr += 1
-    X[dim+idx] = if addEntropy
+    X[dim,idx] = if addEntropy
       addop[dim](glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] )
     else
       glb.mn[1]
@@ -469,7 +469,7 @@ end
 
 function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
                 Np::Int, Niter::Int,
-                pts::Array{Float64,1}, ind::Array{Int},
+                pts::Array{Float64,2}, ind::Array{Int},
                 randU::Array{Float64,1}, randN::Array{Float64,1};
                 addop=(+,), diffop=(-,),
                 getMu=(getEuclidMu,),
@@ -531,13 +531,13 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
         # iterate down multi-scales of the Ball (k-d) tree (of the posterior belief?)
         for l in 1:glbs.Nlevels
           # multiply selected kernels from incoming densities, and sample a new point from the product.
-          samplePoint!(glbs.newPoints, glbs, frm, addop, getMu, getLambda )
+          samplePoint!(glbs.newPoints, glbs, s, addop, getMu, getLambda )
 
           # step a level down in the tree
           levelDown!(glbs);
 
           # ??
-          sampleIndices!(glbs.newPoints, cmoi, glbs, frm, diffop);
+          sampleIndices!(glbs.newPoints, cmoi, glbs, s, diffop);
 
           ## Sequential Gibbs logic where LOO element is rotated through all densities Niter times
           # After T iters, selected a kernel from each density
@@ -562,7 +562,7 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
 
         # take Gaussian product from a kernel component in all densities (inside samplePoint ??)
         # and then sample a value from new posterior kernel
-        samplePoint!(glbs.newPoints, glbs, frm, addop, getMu, getLambda, addEntropy);
+        samplePoint!(glbs.newPoints, glbs, s, addop, getMu, getLambda, addEntropy);
     end
     glbs = 0
     nothing
@@ -612,7 +612,7 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
     # skipping analytic functions for now TODO ??
     UseAn = false
     #??pointsM = zeros(Ndim, Np)
-    points = zeros(Ndim*Np)
+    points = zeros(Ndim, Np)
     #??plhs[1] = mxCreateNumericMatrix(Ndens, Np, mxUINT32_CLASS, mxREAL);
     indices=ones(Int,Ndens, Np)
     maxNp = Np
