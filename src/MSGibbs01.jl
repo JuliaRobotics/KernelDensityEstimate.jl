@@ -228,8 +228,7 @@ function makeFasterSampleIndex!(j::Int,
                                 covValue::Vector{Float64},
                                 offset::Int=0,
                                 diffop=(-,),
-                                doCalmost::Bool=true,
-                                isX86Arch::Bool= (Base.Sys.ARCH in [:x86_64;])  )
+                                doCalmost::Bool=true  )
   #
   # internal helper to for IR optimization to remove
   
