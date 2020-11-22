@@ -80,12 +80,23 @@ mutable struct MSCompOpt
 end
 
 
-function updateGlbParticlesVariance!(glb::GbGlb, j::Int)
+function updateGlbParticlesVariance!( glb::GbGlb, 
+                                      j::Int, 
+                                      idx::Int=0, 
+                                      level::Int=0, 
+                                      recordChoosen::Bool=false  )
+  #
   for dim in 1:glb.Ndim
     glb.particles[dim,j] = mean(glb.trees[j], glb.ind[j], dim)
     # glb.particles[dim+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], dim)
     glb.variance[dim,j]  = bw(glb.trees[j], glb.ind[j], dim)
   end
+
+  if recordChoosen
+    # Store the label selection
+    glb.labelsChoosen[idx][j][level] = glb.ind[j] # glb.ind[j]
+  end
+
   nothing
 end
 
@@ -113,7 +124,7 @@ Returns `Λ=Σ^{-1}` as sum of individual information matrices (inverse covarian
 Λ = Σ_i Λ_i
 ```
 """
-getEuclidLambda(lambdas::Vector{Float64})::Float64 = sum(lambdas)
+getEuclidLambda(lambdas::Vector{Float64}) = sum(lambdas)
 
 """
     $SIGNATURES
@@ -124,7 +135,10 @@ Returns `Λμ`.
 Λμ = Σ_i (Λ_i*μ_i)
 ```
 """
-function getEuclidMu(mus::Vector{Float64}, lambdas::Vector{Float64}, scale::Float64=1.0)
+function getEuclidMu( mus::Vector{Float64}, 
+                      lambdas::Vector{Float64}, 
+                      scale::Float64=1.0  )
+  #
   lambdamu = 0.0
   for z in 1:length(mus)
     lambdamu += mus[z]*lambdas[z]
@@ -288,8 +302,12 @@ function selectLabelOnLevel(glb::GbGlb, j::Int)
       zz=glb.levelList[j,z]
     end
   end
+
+  # the new label in bt.means index
   glb.ind[j] = zz
-  glb.ruptr += 1 # increase randU counter
+
+  # increase randU counter
+  glb.ruptr += 1 
 
   nothing
 end
@@ -352,7 +370,9 @@ function sampleIndex( j::Int,
                       glb::GbGlb,
                       addop=(+,), diffop=(-,),
                       getMu=(getEuclidMu,),
-                      getLambda=(getEuclidLambda,)  )
+                      getLambda=(getEuclidLambda,),
+                      idx::Int=0,
+                      level::Int=0  )
   #
   # determine product of selected kernel-labels from all but jth density (leave out)
   for i in 1:glb.Ndim
@@ -366,7 +386,7 @@ function sampleIndex( j::Int,
   selectLabelOnLevel(glb, j)
 
   # prep new particles and variances for calculation
-  updateGlbParticlesVariance!(glb, j)
+  updateGlbParticlesVariance!(glb, j, idx, level, glb.recordChoosen)
   # @simd for dim in 1:glb.Ndim
   #   glb.particles[dim+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], dim)
   #   glb.variance[dim+glb.Ndim*(j-1)]  = bw(glb.trees[j], glb.ind[j], dim)
@@ -407,7 +427,7 @@ end
 
 ## Level and sampling operations
 
-function levelInit!(glb::GbGlb, smplIdx::Int)
+function levelInit!( glb::GbGlb, smplIdx::Int )
   for j in 1:glb.Ndens
     glb.dNpts[j] = 1
     glb.levelList[j,1] = root(glb.trees[j])
@@ -417,7 +437,7 @@ function levelInit!(glb::GbGlb, smplIdx::Int)
   end
 end
 
-function initIndices!(glb::GbGlb)
+function initIndices!( glb::GbGlb )
   # j is the number of incoming densities
   for j in 1:glb.Ndens
     dNp = glb.dNpts[j]
@@ -440,7 +460,7 @@ function initIndices!(glb::GbGlb)
 end
 
 
-function levelDown!(glb::GbGlb)
+function levelDown!( glb::GbGlb )
   for j in 1:glb.Ndens
     z = 1
     for y in 1:(glb.dNpts[j])
@@ -544,7 +564,7 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
           @inbounds @fastmath for i in 1:Niter
             for j in 1:glbs.Ndens
               # pick a new label (kernel_i) from the LOO density (j) -- assumed leave in Gaussian product already computed
-              sampleIndex(j, cmo, glbs, addop, diffop, getMu, getLambda );
+              sampleIndex(j, cmo, glbs, addop, diffop, getMu, getLambda, s, l );
             end
           end
         end
@@ -555,9 +575,9 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
           glbs.newIndices[j,s] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;
           # glbs.newIndices[(s-1)*glbs.Ndens+j] = getIndexOf(glbs.trees[j], glbs.ind[j])+1;
           
-          if glbs.recordChoosen
-            glbs.labelsChoosen[s][j][glbs.Nlevels+1] = glbs.newIndices[j,s]
-          end
+          # if glbs.recordChoosen
+          #   glbs.labelsChoosen[s][j][glbs.Nlevels+1] = glbs.newIndices[j,s]
+          # end
         end
 
         # take Gaussian product from a kernel component in all densities (inside samplePoint ??)
@@ -609,18 +629,18 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
   getMuT = length(getMu)!=Ndim ? ([ getMu[1] for i in 1:Ndim]...,) : getMu
   getLambdaT = length(getLambda)!=Ndim ? ([ getLambda[1] for i in 1:Ndim]...,) : getLambda
 
-    # skipping analytic functions for now TODO ??
-    UseAn = false
-    #??pointsM = zeros(Ndim, Np)
-    points = zeros(Ndim*Np)
-    #??plhs[1] = mxCreateNumericMatrix(Ndens, Np, mxUINT32_CLASS, mxREAL);
-    indices=ones(Int,Ndens, Np)
-    maxNp = Np
-    for tree in trees
-        if (maxNp < Npts(tree))
-            maxNp = Npts(tree)
-        end
+  # skipping analytic functions for now TODO ??
+  UseAn = false
+  #??pointsM = zeros(Ndim, Np)
+  points = zeros(Ndim*Np)
+  #??plhs[1] = mxCreateNumericMatrix(Ndens, Np, mxUINT32_CLASS, mxREAL);
+  indices=ones(Int,Ndens, Np)
+  maxNp = Np
+  for tree in trees
+    if (maxNp < Npts(tree))
+      maxNp = Npts(tree)
     end
+  end
 
   # how many levels to a balanced binary tree?
   Nlevels = floor(Int,(log(Float64(maxNp))/log(2.0))+1.0)
