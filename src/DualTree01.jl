@@ -20,7 +20,11 @@ function distGauss!(restmp::Array{Float64, 1},
                     minmaxFncUni::Function,
                     mainop=(-,),
                     diffop=(-,),
-                    saturate::Bool=false  )::Nothing
+                    saturate::Bool=false,
+                    isX86Arch::Bool= (Base.Sys.ARCH in [:x86_64;])  )
+  #
+  # internal helper to for IR optimization to remove
+
   #
   @fastmath @inbounds begin
     restmp[1] = 0.0
@@ -44,59 +48,25 @@ end
 
 
 # function
-    maxDistGauss!(rettmp::Vector{Float64},
-                       bd::BallTreeDensity,
-                       dRoot::Int,
-                       atTree::BallTreeDensity,
-                       aRoot::Int,
-                       addop=(+,),
-                       diffop=(-,) )::Nothing = distGauss!(rettmp,bd,dRoot,atTree,aRoot,bwMin,bwMax,addop,diffop)
-  #
-#   @fastmath @inbounds begin
-#     rettmp[1] = 0.0
-#     # TODO upgrade for more general manifolds
-#     for k in 1:Ndim(atTree.bt)
-#         rettmp[2] = abs( diffop[k]( center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
-#         rettmp[2] = addop[k](rettmp[2], rangeB(atTree.bt, aRoot,k) )
-#         rettmp[2] = addop[k](rettmp[2], rangeB(bd.bt, dRoot, k) )
-#         rettmp[1] += (rettmp[2]*rettmp[2])/bwMin(bd, dRoot, k)
-#         if !bwUniform(bd)
-#           rettmp[1] += log(bwMax(bd, dRoot, k))
-#         end
-#     end
-#     rettmp[1] = exp(-0.5*rettmp[1])
-#   end
-#   nothing
-# end
+maxDistGauss!(rettmp::Vector{Float64},
+              bd::BallTreeDensity,
+              dRoot::Int,
+              atTree::BallTreeDensity,
+              aRoot::Int,
+              addop=(+,),
+              diffop=(-,) ) = distGauss!(rettmp,bd,dRoot,atTree,aRoot,bwMin,bwMax,addop,diffop)
+#
 
-# function
-    minDistGauss!(restmp::Array{Float64, 1},
-                       bd::BallTreeDensity,
-                       dRoot::Int,
-                       atTree::BallTreeDensity,
-                       aRoot::Int,
-                       addop=(+,),
-                       diffop=(-,) )::Nothing = distGauss!(restmp,bd,dRoot,atTree,aRoot,bwMax,bwMin,diffop,diffop,true)
-  #
-#   @fastmath @inbounds begin
-#     restmp[1] = 0.0
-#     #tmp = 0.0
-#     for k=1:Ndim(atTree.bt)
-#       ## TODO upgrade for more general manifolds
-#       restmp[2] = abs( diffop[k]( center(atTree.bt, aRoot, k), center(bd.bt, dRoot, k)) )
-#       restmp[2] = diffop[k](restmp[2], rangeB(atTree.bt, aRoot, k) )
-#       restmp[2] = diffop[k](restmp[2], rangeB(bd.bt, dRoot, k) )
-#       # reasoning behind saturation not clear (or documented well yet)
-#       restmp[2] = (restmp[2] <= 0) ? 0.0 : restmp[2]
-#       restmp[1] += (restmp[2]*restmp[2])/bwMax(bd, dRoot, k)
-#       if  !bwUniform(bd)
-#         restmp[1] += log(bwMin(bd, dRoot, k))
-#       end
-#     end
-#     restmp[1] = exp(-0.5*restmp[1])
-#   end
-#   nothing
-# end
+
+# function mainop := diffop in this case, and again diffop = diffop
+minDistGauss!(restmp::Array{Float64, 1},
+              bd::BallTreeDensity,
+              dRoot::Int,
+              atTree::BallTreeDensity,
+              aRoot::Int,
+              addop=(+,),
+              diffop=(-,) ) = distGauss!(restmp,bd,dRoot,atTree,aRoot,bwMax,bwMin,diffop,diffop,true)
+#
 
 
 
@@ -109,8 +79,7 @@ maxDistKer!(rettmp,
             addop=(+,),
             diffop=(-,) ) = maxDistGauss!(rettmp, bd, dRoot, atTree, aRoot, addop, diffop)
 
-#   nothing
-# end
+
 
 minDistKer!(rettmp,
             bd::BallTreeDensity,
@@ -120,8 +89,7 @@ minDistKer!(rettmp,
             addop=(+,),
             diffop=(-,) ) = minDistGauss!(rettmp, bd, dRoot, atTree, aRoot, addop, diffop)
 
-#   nothing
-# end
+
 
 function pushDownLocal(atTree::BallTreeDensity, aRoot::Int, hdl::pArrHdls)
     if !(isLeaf(atTree, aRoot))

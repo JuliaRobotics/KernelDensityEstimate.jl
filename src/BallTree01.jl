@@ -118,7 +118,7 @@ function  most_spread_coord(bt::BallTree, low::Int, high::Int, addop=(+,), diffo
     # compute mean
     mean = 0
     for point = (bt.dims*(low-1) + dimension):bt.dims:(bt.dims*(high-1))
-      # scale each value by 1/N
+      # scale each value by 1/w=(high-low)=N
       mean = addop[dimension](mean, w*bt.centers[point])
     end
 
