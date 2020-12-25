@@ -196,3 +196,17 @@ Randomly sample points from the KernelDensityEstimate object.
 function rand(p::BallTreeDensity, N::Int=1)
     return KernelDensityEstimate.sample(p,N)[1]
 end
+
+
+
+function Base.show(io::IO, x::BallTreeDensity)
+  # println(io, )
+  printstyled(io, "BallTreeDensity:", color=:blue)
+  println(io)
+  println(io, "  dims: ", Ndim(x))
+  println(io, "  Npts: ", Npts(x))
+  println(io, "  bws:  ", round.(getBW(x)[:,1], digits=6))
+  # println(io)
+end
+
+Base.show(io::IO, ::MIME"text/plain", x::BallTreeDensity) = show(io, x)
