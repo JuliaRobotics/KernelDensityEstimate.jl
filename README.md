@@ -11,11 +11,9 @@
 
 Kernel Density Estimation **with product approximation using multiscale Gibbs sampling**.
 
-All code is implemented in native Julia, including plotting which uses Gadfly. The main focus of this module is the ability to take the product between multiple KDEs, and makes this module unique from other KDE implementations. This package also supports n-dimensional KDEs. Please see examples below for details. The implementation is already fairly optimized from a symbolic standpoint and is based on work by:
+All code is implemented in native Julia, including plotting. The main focus of this module is the ability to take the product between multiple KDEs, and makes this module unique from other KDE implementations. This package also supports n-dimensional KDEs. Please see examples below for details. The implementation is already fairly optimized from a symbolic standpoint and is based on work by:
 
     Sudderth, Erik B.; Ihler, Alexander, et al. "Nonparametric belief propagation." Communications of the ACM 53.10 (2010): 95-103.
-
-The package has built in plotting functionality, using [Gadfly](https://github.com/GiovineItalia/Gadfly.jl).  Comments welcome.
 
 ## Installation
 
@@ -26,7 +24,7 @@ In Julia 0.7 and above:
 
 ## Plotting Functions
 
-The plotting fucntions for this library have been separated into [KernelDensityEstimatePlotting.jl](http://www.github.com/JuliaRobotics/KernelDensityEstimatePlotting.jl).
+The plotting functions for this library have been separated into [KernelDensityEstimatePlotting.jl](http://www.github.com/JuliaRobotics/KernelDensityEstimatePlotting.jl).  Plotting functionality uses [Gadfly](https://github.com/GiovineItalia/Gadfly.jl).  Comments welcome.
 
 # Examples
 
