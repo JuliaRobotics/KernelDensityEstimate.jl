@@ -31,7 +31,7 @@ mutable struct GbGlb
     recordChoosen::Bool
 end
 
-function makeEmptyGbGlb()
+function makeEmptyGbGlb(;recordChoosen::Bool=false)
   return GbGlb( zeros(0,0),
                 zeros(0,0),
                 zeros(0),
@@ -52,7 +52,7 @@ function makeEmptyGbGlb()
                 Float64[0.0;], Float64[0.0;],
                 zeros(0), zeros(0),
                 Dict{Int,Dict{Int,Dict{Int,Int}}}(),
-                false  )
+                recordChoosen  )
 end
 
 
