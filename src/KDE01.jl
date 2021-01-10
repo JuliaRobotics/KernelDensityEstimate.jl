@@ -88,16 +88,16 @@ end
 
 Return the points (centers) used to construct the KDE.
 """
-function getPoints(bd::BallTreeDensity)
-    pts=zeros(bd.bt.dims, bd.bt.num_points)
-    perm = bd.bt.permutation[(bd.bt.num_points + 1):end]
-    bd.bt.num_points, bd.bt.dims
-    res = reshape(bd.bt.centers[(bd.bt.dims*bd.bt.num_points+1):end], bd.bt.dims, bd.bt.num_points)
-    ##for i in 1:bd.bt.dims
-      pts[:, perm ] = res[:,:]
-    ##end
-    pts = pts[:,1:bd.bt.num_points]
-    return pts
+function getPoints(bd::BallTreeDensity, idx=1:bd.bt.num_points)
+  perm = bd.bt.permutation[(bd.bt.num_points + 1):end]
+  bd.bt.num_points, bd.bt.dims
+  res = reshape(bd.bt.centers[(bd.bt.dims*bd.bt.num_points+1):end], bd.bt.dims, bd.bt.num_points)
+  # return res[:,perm[idx]]
+  pts=zeros(bd.bt.dims, bd.bt.num_points)
+  pts[:, perm ] = res[:,:]
+  return pts[:,idx]
+  # pts = pts[:,idx]
+  # return pts
 end
 
 
