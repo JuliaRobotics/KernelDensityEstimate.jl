@@ -667,7 +667,7 @@ function *( trees::Vector{BallTreeDensity};
   #
 
   # hack fix for #70
-  if length(trees) == 1
+  if length(trees) == 1 && !addEntropy
     pts = getPoints(trees[1]) |> deepcopy
     return kde!(pts)
   end
