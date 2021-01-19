@@ -1,7 +1,7 @@
 mutable struct GbGlb
     # REMEMBER -- all multi-dim arrays are column-indexing!  [i,j] => [j*N+i]
     particles::Array{Float64,2} # Array{Float64,1} # [Ndim x Ndens]      // means of selected particles
-    variance::Array{Float64,2}  # Array{Float64,1}  # [Ndim x Ndens]      //   variance of selected particles
+    variance::Array{Float64,2}  # Array{Float64,1} # [Ndim x Ndens]      //   variance of selected particles
     p::Array{Float64,1}         # [Np]                // probability of ith kernel
     ind::Array{Int,1}           # current indexes of MCMC step
     Malmost::Array{Float64,1}
@@ -22,7 +22,7 @@ mutable struct GbGlb
     dNpts::Array{Int,1}         # ? how many points at current level in tree
     ruptr::Int
     rnptr::Int
-    mn::Vector{Float64}
+    mn::Vector{Float64}         # ? only used in samplePoint as [1] -- something seems wrong with [1]
     vn::Vector{Float64}
     calclambdas::Vector{Float64}
     calcmu::Vector{Float64}
@@ -94,7 +94,7 @@ function updateGlbParticlesVariance!( glb::GbGlb,
 
   if recordChoosen
     # Store the label selection
-    glb.labelsChoosen[idx][j][level] = glb.ind[j] # glb.ind[j]
+    glb.labelsChoosen[idx][j][level] = glb.ind[j]
   end
 
   nothing
@@ -186,6 +186,7 @@ function gaussianProductMeanCov!( glb::GbGlb,
     # on manifold development
     @inbounds @fastmath @simd for j in 1:glb.Ndens
       if (j!=skip)
+        # who populated glb.particles?
         glb.calclambdas[j] = 1.0/glb.variance[dim,j]
         glb.calcmu[j] = glb.particles[dim,j] #[dim+glb.Ndim*(j-1)]
       else
@@ -358,17 +359,16 @@ Sample new kernel in leave out density according to multiscale Gibbs sampling.
 
 Notes
 -----
-
 - `j` is the left out density.
 - Needs on-manifold getMu for product of two leave in density kernels.
 - Needs diffop (on manifold difference for kernel evaluation).
-
-Sudderth PhD, p.139, Fig. 3.3, top-left operation
+- Sudderth PhD, p.139, Fig. 3.3, top-left operation
 """
 function sampleIndex( j::Int,
                       cmo::MSCompOpt,
                       glb::GbGlb,
-                      addop=(+,), diffop=(-,),
+                      addop=(+,), 
+                      diffop=(-,),
                       getMu=(getEuclidMu,),
                       getLambda=(getEuclidLambda,),
                       idx::Int=0,
@@ -387,10 +387,7 @@ function sampleIndex( j::Int,
 
   # prep new particles and variances for calculation
   updateGlbParticlesVariance!(glb, j, idx, level, glb.recordChoosen)
-  # @simd for dim in 1:glb.Ndim
-  #   glb.particles[dim+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], dim)
-  #   glb.variance[dim+glb.Ndim*(j-1)]  = bw(glb.trees[j], glb.ind[j], dim)
-  # end
+
   return nothing
 end
 
@@ -416,11 +413,14 @@ function samplePoint!(X::Array{Float64,1},
     gaussianProductMeanCov!(glb, dim, glb.mn, glb.vn, 1, -1, addop[dim], getMu[dim], getLambda[dim] ) # getMeanCovDens!
     # then draw a sample from it
     glb.rnptr += 1
+    
+    # using .mn[1] is in conjunction with `gaussianProductMeanCov!(.., 1,..)` above
     X[dim+idx] = if addEntropy
       addop[dim](glb.mn[1], sqrt(glb.vn[1]) * glb.randN[glb.rnptr] )
     else
       glb.mn[1]
     end
+    # @show addEntropy, dim, idx, X[dim+idx] 
   end
   return nothing
 end
@@ -527,7 +527,7 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
     glbs.calclambdas = zeros(glbs.Ndens)
     glbs.Nlevels = floor(Int,((log(maxNp)/log(2))+1))
     # working memory where kernels are multiplied together
-    glbs.particles = zeros(glbs.Ndim, Ndens) # zeros(glbs.Ndim*Ndens)
+    glbs.particles = zeros(glbs.Ndim, Ndens)
     glbs.variance  = zeros(glbs.Ndim, Ndens)
     glbs.dNpts = zeros(Int,Ndens)
     glbs.levelList = ones(Int,Ndens,maxNp)
@@ -665,6 +665,13 @@ function *( trees::Vector{BallTreeDensity};
             glbs = makeEmptyGbGlb(),
             addEntropy::Bool=true )
   #
+
+  # hack fix for #70
+  if length(trees) == 1 && !addEntropy
+    pts = getPoints(trees[1]) |> deepcopy
+    return kde!(pts)
+  end
+
   numpts = round(Int, Statistics.mean(Npts.(trees)))
   d = Ndim(trees[1])
   for p in trees
