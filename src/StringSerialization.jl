@@ -1,16 +1,16 @@
-function string(d::KernelDensityEstimate.BallTreeDensity)
+function Base.string(d::KernelDensityEstimate.BallTreeDensity)
   # TODO only supports single bandwidth per dimension at this point
   pts = getPoints(d)
   return "KDE:$(size(pts,2)):$(getBW(d)[:,1]):$(pts)"
 end
 
-function parsestringvector(str::AS; dlim=',') where {AS <: AbstractString}
+function parsestringvector(str::AbstractString; dlim=',')
   sstr = split(split(strip(str),'[')[end],']')[1]
   ssstr = strip.(split(sstr,dlim))
   parse.(Float64, ssstr)
 end
 
-function convert(::Type{BallTreeDensity}, str::AS) where {AS <: AbstractString}
+function convert(::Type{<:BallTreeDensity}, str::AbstractString)
   @assert occursin(r"KDE:", str) # ismatch
   sstr = strip.(split(str, ':'))
   N = parse(Int, sstr[2])

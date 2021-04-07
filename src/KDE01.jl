@@ -140,7 +140,7 @@ end
 
 Extract the marginal distribution from the given higher dimensional kernel density estimate object.
 """
-function marginal(bd::BallTreeDensity, ind::Array{Int,1})
+function marginal(bd::BallTreeDensity, ind::AbstractVector{<:Integer})
   pts = getPoints(bd)
   if size(bd.bandwidth,2) > 2*bd.bt.num_points
     sig = getBW(bd)
@@ -152,12 +152,12 @@ function marginal(bd::BallTreeDensity, ind::Array{Int,1})
   p = kde!(pts[ind,:],sig[ind], wts)
 end
 
-function randKernel(N::Int, M::Int, ::Type{KernelDensityEstimate.GaussianKer}) #t::Int)
+function randKernel(N::Int, M::Int, ::Type{<:KernelDensityEstimate.GaussianKer}) #t::Int)
   return randn(N,M)
 end
 
 """
-   $(SIGNATURES)
+    $(SIGNATURES)
 
 Randomly sample points from the KernelDensityEstimate object.
 """
