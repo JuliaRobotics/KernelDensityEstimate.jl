@@ -666,7 +666,6 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
     randN = vec(readdlm("randN.csv"))
   end
 
-  @show ndims
   gibbs1( Ndens, trees, Np, Niter, points, indices, 
           randU, randN, addop=addopT, diffop=diffopT, ndims=ndims,
           getMu=getMuT, getLambda=getLambdaT, glbs=glbs, 
