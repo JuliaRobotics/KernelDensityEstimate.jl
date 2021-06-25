@@ -29,6 +29,7 @@ mutable struct GbGlb
     # labelsChoosen[sample][densityId][level]
     labelsChoosen::Dict{Int,Dict{Int,Dict{Int,Int}}}
     recordChoosen::Bool
+    partialDimMask::Vector{BitArray{1}}
 end
 
 function makeEmptyGbGlb(;recordChoosen::Bool=false)
@@ -48,11 +49,14 @@ function makeEmptyGbGlb(;recordChoosen::Bool=false)
                 ones(Int,1,0),
                 ones(Int,1,0),
                 zeros(Int,0),
-                0, 0,
+                0, 
+                0,
                 Float64[0.0;], Float64[0.0;],
-                zeros(0), zeros(0),
+                zeros(0), 
+                zeros(0),
                 Dict{Int,Dict{Int,Dict{Int,Int}}}(),
-                recordChoosen  )
+                recordChoosen,
+                Vector{BitVector}()  )
 end
 
 
@@ -70,6 +74,8 @@ function printGlbs(g::GbGlb, tag::String="")
   @show g.levelListNew
   @show round.(g.newPoints, digits=4)
   @show g.newIndices
+  @show g.partialDimMask
+  nothing
 end
 
 
@@ -185,10 +191,10 @@ function gaussianProductMeanCov!( glb::GbGlb,
   else
     # on manifold development
     @inbounds @fastmath @simd for j in 1:glb.Ndens
-      if (j!=skip)
+      if (j!=skip) && glb.partialDimMask[j][dim]
         # who populated glb.particles?
         glb.calclambdas[j] = 1.0/glb.variance[dim,j]
-        glb.calcmu[j] = glb.particles[dim,j] #[dim+glb.Ndim*(j-1)]
+        glb.calcmu[j] = glb.particles[dim,j]
       else
         # adding zeros does not influence the result because `lambda_i = 0`
         glb.calclambdas[j] = 0.0
@@ -495,7 +501,9 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
                 getMu=(getEuclidMu,),
                 getLambda=(getEuclidLambda,),
                 glbs = makeEmptyGbGlb(),
-                addEntropy::Bool=true  )
+                addEntropy::Bool=true,
+                ndims::Int=maximum(Ndim.(trees)),
+                partialDimMask::AbstractVector{<:BitVector} = [ones(Int,ndims) .== 1 for i in 1:Ndens]  )
   #
   
   # number densities in the product
@@ -510,7 +518,8 @@ function gibbs1(Ndens::Int, trees::Array{BallTreeDensity,1},
   glbs.randU = randU
   glbs.randN = randN
   # the dimension of the incoming densities
-  glbs.Ndim = trees[1].bt.dims
+  glbs.Ndim = maximum(Ndim.(trees))
+  glbs.partialDimMask = partialDimMask
 
   maxNp = 0                         # largest # of particles we deal with
   for tree in trees
@@ -612,27 +621,29 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
                           getMu::T3=(getEuclidMu,),
                           getLambda::T4=(getEuclidLambda,),
                           glbs = makeEmptyGbGlb(),
-                          addEntropy::Bool=true  ) where {T1<:Tuple,T2<:Tuple,T3<:Tuple,T4<:Tuple}
+                          addEntropy::Bool=true,
+                          ndims::Int=maximum(Ndim.(trees)),
+                          partialDimMask::AbstractVector{BitVector} = [ones(Int,ndims) .== 1 for i in 1:length(trees)]  
+                        ) where {T1<:Tuple,T2<:Tuple,T3<:Tuple,T4<:Tuple}
   #
   #
-  
   
   # See  Ihler,Sudderth,Freeman,&Willsky, "Efficient multiscale sampling from products
   #         of Gaussian mixtures", in Proc. Neural Information Processing Systems 2003
   Ndens = length(trees)              # of densities
-  Ndim  = trees[1].bt.dims           # of dimensions
+  # ndims  = trees[1].bt.dims           # of dimensions
   Np    = Npts(npd0)                # of points to sample
 
   # prepare stack manifold add and diff operations functions (manifolds must match dimension)
-  addopT = length(addop)!=Ndim ? ([ (addop[1]) for i in 1:Ndim]...,) : addop
-  diffopT = length(diffop)!=Ndim ? ([ (diffop[1]) for i in 1:Ndim]...,) : diffop
-  getMuT = length(getMu)!=Ndim ? ([ getMu[1] for i in 1:Ndim]...,) : getMu
-  getLambdaT = length(getLambda)!=Ndim ? ([ getLambda[1] for i in 1:Ndim]...,) : getLambda
+  addopT = length(addop)!=ndims ? ([ (addop[1]) for i in 1:ndims]...,) : addop
+  diffopT = length(diffop)!=ndims ? ([ (diffop[1]) for i in 1:ndims]...,) : diffop
+  getMuT = length(getMu)!=ndims ? ([ getMu[1] for i in 1:ndims]...,) : getMu
+  getLambdaT = length(getLambda)!=ndims ? ([ getLambda[1] for i in 1:ndims]...,) : getLambda
 
   # skipping analytic functions for now TODO ??
   UseAn = false
-  #??pointsM = zeros(Ndim, Np)
-  points = zeros(Ndim*Np)
+  #??pointsM = zeros(ndims, Np)
+  points = zeros(ndims*Np)
   #??plhs[1] = mxCreateNumericMatrix(Ndens, Np, mxUINT32_CLASS, mxREAL);
   indices=ones(Int,Ndens, Np)
   maxNp = Np
@@ -648,15 +659,20 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
   # Generate enough random numbers to get us through the rest of this
   if true
     randU = rand(Int(Np*Ndens*(Niter+2)*Nlevels))
-    randN = randn(Int(Ndim*Np*(Nlevels+1)))
+    randN = randn(Int(ndims*Np*(Nlevels+1)))
   else
     # FIXME using DelimitedFiles
     randU = vec(readdlm("randU.csv"))
     randN = vec(readdlm("randN.csv"))
   end
 
-  gibbs1(Ndens, trees, Np, Niter, points, indices, randU, randN, addop=addopT, diffop=diffopT, getMu=getMuT, getLambda=getLambdaT, glbs=glbs, addEntropy=addEntropy );
-  return reshape(points, Ndim, Np), indices
+  @show ndims
+  gibbs1( Ndens, trees, Np, Niter, points, indices, 
+          randU, randN, addop=addopT, diffop=diffopT, ndims=ndims,
+          getMu=getMuT, getLambda=getLambdaT, glbs=glbs, 
+          addEntropy=addEntropy, partialDimMask=partialDimMask );
+  #
+  return reshape(points, ndims, Np), indices
 end
 
 
@@ -673,7 +689,7 @@ function *( trees::Vector{BallTreeDensity};
   end
 
   numpts = round(Int, Statistics.mean(Npts.(trees)))
-  d = Ndim(trees[1])
+  d = maximum(Ndim.(trees))
   for p in trees
     d != Ndim(p) ? error("kdes must have same dimension") : nothing
   end
