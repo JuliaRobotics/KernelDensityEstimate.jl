@@ -1,8 +1,8 @@
 
 
 function kde!(points::A,
-              addop=(+,),
-              diffop=(-,) ) where {A <: AbstractArray{Float64,2}}
+              addop::Tuple=(+,),
+              diffop::Tuple=(-,) ) where {A <: AbstractArray{Float64,2}}
   #
   dims = size(points,1)
 
@@ -31,11 +31,11 @@ function kde!(points::Array{Float64,1}, addop=(+,), diffop=(-,) )
   return kde!(reshape(points, 1, length(points)), addop, diffop )
 end
 
-function kde!(points::A,
+function kde!(points::AbstractArray{<:Real,2},
               ks::Array{Float64,1},
               weights::Array{Float64,1},
               addop=(+,),
-              diffop=(-,)  ) where {A <: AbstractArray{Float64,2}}
+              diffop=(-,)  )
   #
   Nd, Np = size(points)
   if (length(ks) == 1)
@@ -61,7 +61,7 @@ end
 
 Construct a BallTreeDensity object using `points` for centers and bandwidth `ks`.
 """
-function kde!(points::A, ks::Array{Float64,1}, addop=(+,), diffop=(-,)) where {A <: AbstractArray{Float64,2}}
+function kde!(points::A, ks::Array{Float64,1}, addop::Tuple=(+,), diffop::Tuple=(-,)) where {A <: AbstractArray{Float64,2}}
 
   Nd, Np = size(points)
   weights = ones(Np)
@@ -75,7 +75,7 @@ function kde!(points::A, ks::Array{Float64,1}, addop=(+,), diffop=(-,)) where {A
   kde!(points, ks, weights, addop, diffop)
 end
 
-function kde!(points::Array{Float64,1}, ks::Array{Float64,1}, addop=(+,), diffop=(-,))
+function kde!(points::Array{Float64,1}, ks::Array{Float64,1}, addop::Tuple=(+,), diffop::Tuple=(-,))
   Np = length(points)
   pts = zeros(1,Np)
   pts[1,:] = points

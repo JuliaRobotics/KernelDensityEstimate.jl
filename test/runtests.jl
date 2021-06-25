@@ -253,3 +253,6 @@ pp = convert(BallTreeDensity, ps)
 @test norm(getBW(pp)-getBW(p)) < 1e-4
 
 end
+
+
+include("testPartialProd.jl")
