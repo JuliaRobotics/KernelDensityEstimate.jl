@@ -1,6 +1,6 @@
 # KernelDensityEstimate.jl
 
-[![Build Status](https://travis-ci.org/JuliaRobotics/KernelDensityEstimate.jl.svg?branch=master)](https://travis-ci.org/JuliaRobotics/KernelDensityEstimate.jl)
+[![CI](https://github.com/JuliaRobotics/KernelDensityEstimate.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/JuliaRobotics/KernelDensityEstimate.jl/actions/workflows/ci.yml)
 [![codecov.io](https://codecov.io/github/JuliaRobotics/KernelDensityEstimate.jl/coverage.svg?branch=master)](https://codecov.io/github/JuliaRobotics/KernelDensityEstimate.jl?branch=master)
 
 <!--
@@ -17,7 +17,7 @@ All code is implemented in native Julia, including plotting. The main focus of t
 
 ## Installation
 
-In Julia 0.7 and above:
+In Julia 1.0 and above:
 ```julia
 ] add KernelDensityEstimate
 ```
