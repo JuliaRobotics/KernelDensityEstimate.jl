@@ -177,18 +177,17 @@ function gaussianProductMeanCov!( glb::GbGlb,
   #
   destMu[offset] = 0.0;
   destCov[offset] = 0.0;
+  # suppress partials if no information available on this dimension
+  checkpartials = (bv->bv[dim]).(glb.partialDimMask)
+  # incorporate skip
+  skip <= 0 ? nothing : (checkpartials[skip]=false)
+  println(" checkpartials=$(checkpartials)")
+  if !any(checkpartials)
+    # zero introduces no artificial information
+    return nothing
+  end
   # Compute mean and variances (product) of selected particles
-  if false
-    # @inbounds @fastmath @simd for j in 1:glb.Ndens
-    #   if (j!=skip)
-    #     # TODO: change to on-manifold operation
-    #     destCov[offset] += 1.0/glb.variance[dim+glb.Ndim*(j-1)]
-    #     destMu[offset] = addop(destMu[offset], glb.particles[dim+glb.Ndim*(j-1)]/glb.variance[dim+glb.Ndim*(j-1)])
-    #   end
-    # end
-    # destCov[offset] = 1.0/destCov[offset];
-    # destMu[offset] *= destCov[offset];
-  else
+
     # on manifold development
     @inbounds @fastmath @simd for j in 1:glb.Ndens
       if (j!=skip) && glb.partialDimMask[j][dim]
@@ -205,9 +204,7 @@ function gaussianProductMeanCov!( glb::GbGlb,
     @inbounds destCov[offset] = 1.0/destCov[offset]
     # μ = 1/Λ * Λμ  ## i.e. already scaled to mean only
     @inbounds destMu[offset] = getMu(glb.calcmu, glb.calclambdas, destCov[offset])
-    # destMu[offset] = destCov[offset]*getMu(glb.calcmu, glb.calclambdas)
-    # destMu[offset] = getMu(glb.calcmu, glb.calclambdas)
-  end
+
   nothing
 end
 
@@ -272,17 +269,32 @@ function makeFasterSampleIndex!(j::Int,
       doCalmost ? (cmo.tmpC += covValue[i]) : nothing
       # tmpM on-manifold differencing operation
       cmo.tmpM = diffop[i](mean(glb.trees[j], zz, i), muValue[i+offset])
-      # This is the slowest piece
-      glb.p[z] += (cmo.tmpM*cmo.tmpM)/cmo.tmpC
-      glb.p[z] += log(cmo.tmpC)
+      distr = (cmo.tmpM*cmo.tmpM)/cmo.tmpC
+      if !isnan(distr)
+        # This is the slowest piece
+        glb.p[z] += distr
+        glb.p[z] += log(cmo.tmpC)
+      end
     end
     # final stage in Gaussian kernel evaluation
     @inbounds @fastmath glb.p[z] = exp( -0.5 * glb.p[z] ) * weight(glb.trees[j].bt, zz) # slowest piece
+    
+    # suppress NaNs
+    if isnan(glb.p[z])
+      glb.p[z] = 0.0
+    end
     #
     cmo.pT += glb.p[z]
     z < glb.dNpts[j] ? (zz = glb.levelList[j,(z+1)]) : nothing
   end
 
+  # stick with selection of others to preserve correlations
+  if cmo.pT < 1e-99
+    p_ = view(glb.p, 1:(glb.dNpts[j]))
+    p_ .= weight(glb.trees[j].bt, zz)
+    cmo.pT = sum(p_)
+  end
+    
   # Normalize the new probabilty for selecting a new kernel
   @simd for z in 1:glb.dNpts[j]
     glb.p[z] /= cmo.pT
