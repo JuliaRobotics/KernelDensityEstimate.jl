@@ -181,7 +181,6 @@ function gaussianProductMeanCov!( glb::GbGlb,
   checkpartials = (bv->bv[dim]).(glb.partialDimMask)
   # incorporate skip
   skip <= 0 ? nothing : (checkpartials[skip]=false)
-  println(" checkpartials=$(checkpartials)")
   if !any(checkpartials)
     # zero introduces no artificial information
     return nothing
