@@ -100,7 +100,7 @@ function updateGlbParticlesVariance!( glb::GbGlb,
 
   if recordChoosen
     # Store the label selection
-    glb.labelsChoosen[idx][j][level] = glb.ind[j]
+    glb.labelsChoosen[idx][j][level] = glb.trees[j].bt.permutation[glb.ind[j]]
   end
 
   nothing
