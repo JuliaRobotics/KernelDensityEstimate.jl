@@ -633,17 +633,20 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
                           getLambda::T4=(getEuclidLambda,),
                           glbs = makeEmptyGbGlb(),
                           addEntropy::Bool=true,
-                          ndims::Int=maximum(Ndim.(trees)),
-                          partialDimMask::AbstractVector{BitVector} = [ones(Int,ndims) .== 1 for i in 1:length(trees)]  
+                          ndims::Integer=maximum(Ndim.(trees)),
+                          Ndens = length(trees),              # of densities
+                          Np    = Npts(npd0),                 # of points to sample
+                          maxNp = maximum([Np; Npts.(trees)]),
+                          Nlevels = floor(Int,(log(Float64(maxNp))/log(2.0))+1.0), # how many levels to a balanced binary tree?
+                          randU = rand(Int(Np*Ndens*(Niter+2)*Nlevels)),
+                          randN = randn(Int(ndims*Np*(Nlevels+1))),                
+                          partialDimMask::AbstractVector{<:BitVector} = [ones(Int,ndims) .== 1 for i in 1:length(trees)],
                         ) where {T1<:Tuple,T2<:Tuple,T3<:Tuple,T4<:Tuple}
   #
   #
   
   # See  Ihler,Sudderth,Freeman,&Willsky, "Efficient multiscale sampling from products
   #         of Gaussian mixtures", in Proc. Neural Information Processing Systems 2003
-  Ndens = length(trees)              # of densities
-  # ndims  = trees[1].bt.dims           # of dimensions
-  Np    = Npts(npd0)                # of points to sample
 
   # prepare stack manifold add and diff operations functions (manifolds must match dimension)
   addopT = length(addop)!=ndims ? ([ (addop[1]) for i in 1:ndims]...,) : addop
@@ -657,21 +660,15 @@ function prodAppxMSGibbsS(npd0::BallTreeDensity,
   points = zeros(ndims*Np)
   #??plhs[1] = mxCreateNumericMatrix(Ndens, Np, mxUINT32_CLASS, mxREAL);
   indices=ones(Int,Ndens, Np)
-  maxNp = Np
-  for tree in trees
-    if (maxNp < Npts(tree))
-      maxNp = Npts(tree)
-    end
-  end
+  # for tree in trees
+  #   if (maxNp < Npts(tree))
+  #     maxNp = Npts(tree)
+  #   end
+  # end
 
-  # how many levels to a balanced binary tree?
-  Nlevels = floor(Int,(log(Float64(maxNp))/log(2.0))+1.0)
 
   # Generate enough random numbers to get us through the rest of this
-  if true
-    randU = rand(Int(Np*Ndens*(Niter+2)*Nlevels))
-    randN = randn(Int(ndims*Np*(Nlevels+1)))
-  else
+  if false
     # FIXME using DelimitedFiles
     randU = vec(readdlm("randU.csv"))
     randN = vec(readdlm("randN.csv"))
