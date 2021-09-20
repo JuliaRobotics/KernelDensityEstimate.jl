@@ -93,9 +93,17 @@ function updateGlbParticlesVariance!( glb::GbGlb,
                                       recordChoosen::Bool=false  )
   #
   for dim in 1:glb.Ndim
-    glb.particles[dim,j] = mean(glb.trees[j], glb.ind[j], dim)
+    # TODO should this skip partial dims???
+    if !glb.partialDimMask[j][dim]
+      # Skip inactive dim (partial) -- zero so that no information is added info = 1/var
+      glb.particles[dim,j] = 0.0
+      glb.variance[dim,j]  = 0.0
+    else
+      # regular case for active dimension
+      glb.particles[dim,j] = mean(glb.trees[j], glb.ind[j], dim)
     # glb.particles[dim+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], dim)
-    glb.variance[dim,j]  = bw(glb.trees[j], glb.ind[j], dim)
+      glb.variance[dim,j]  = bw(glb.trees[j], glb.ind[j], dim)
+    end
   end
 
   if recordChoosen
