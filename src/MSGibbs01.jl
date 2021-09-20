@@ -263,6 +263,10 @@ function makeFasterSampleIndex!(j::Int,
     glb.p[z] = 0.0
     # compute mean `cmo.tmpM` and covariance `cmo.tmpC` across all KDE dimensions.
     for i in 1:glb.Ndim
+      if !glb.partialDimMask[j][i]
+        # Skip inactive dim (partial)
+        continue
+      end
       # tmpC is calculated on linear (Euclidean) manifold
       cmo.tmpC = bw(glb.trees[j], zz, i)
       doCalmost ? (cmo.tmpC += covValue[i]) : nothing
@@ -286,19 +290,19 @@ function makeFasterSampleIndex!(j::Int,
     cmo.pT += glb.p[z]
     z < glb.dNpts[j] ? (zz = glb.levelList[j,(z+1)]) : nothing
   end
-
+  
   # stick with selection of others to preserve correlations
   if cmo.pT < 1e-99
     p_ = view(glb.p, 1:(glb.dNpts[j]))
     p_ .= weight(glb.trees[j].bt, zz)
     cmo.pT = sum(p_)
   end
-    
+  
   # Normalize the new probabilty for selecting a new kernel
   @simd for z in 1:glb.dNpts[j]
     glb.p[z] /= cmo.pT
   end
-
+  
   # construct CDF for sampling a new kernel
   @simd for z in 2:glb.dNpts[j]
     glb.p[z] += glb.p[z-1]
