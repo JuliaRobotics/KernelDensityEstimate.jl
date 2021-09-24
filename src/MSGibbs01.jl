@@ -266,12 +266,20 @@ function makeFasterSampleIndex!(j::Int,
   # zz=zz0
   zz=glb.levelList[j,1]
 
+  # select active LOO dims from (not-j)
+  dimmask = 0 .== ones(Int, glb.Ndim)
+  for __j in 1:glb.Ndens
+    __j == j ? continue : nothing
+    dimmask .|= glb.partialDimMask[__j]
+  end
+
   # iterate over kernels in the left out density
   for z in 1:(glb.dNpts[j])
     glb.p[z] = 0.0
     # compute mean `cmo.tmpM` and covariance `cmo.tmpC` across all KDE dimensions.
     for i in 1:glb.Ndim
-      if !glb.partialDimMask[j][i]
+      # skip both inactive dim on j, or skip inactive dim from all others in LOO (not-j)
+      if !glb.partialDimMask[j][i] || !dimmask[i] ## tmpC tmpM only from partial LOO
         # Skip inactive dim (partial)
         continue
       end
