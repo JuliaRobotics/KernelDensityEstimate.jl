@@ -93,9 +93,17 @@ function updateGlbParticlesVariance!( glb::GbGlb,
                                       recordChoosen::Bool=false  )
   #
   for dim in 1:glb.Ndim
-    glb.particles[dim,j] = mean(glb.trees[j], glb.ind[j], dim)
+    # TODO should this skip partial dims???
+    if !glb.partialDimMask[j][dim]
+      # Skip inactive dim (partial) -- zero so that no information is added info = 1/var
+      glb.particles[dim,j] = 0.0
+      glb.variance[dim,j]  = 0.0
+    else
+      # regular case for active dimension
+      glb.particles[dim,j] = mean(glb.trees[j], glb.ind[j], dim)
     # glb.particles[dim+glb.Ndim*(j-1)] = mean(glb.trees[j], glb.ind[j], dim)
-    glb.variance[dim,j]  = bw(glb.trees[j], glb.ind[j], dim)
+      glb.variance[dim,j]  = bw(glb.trees[j], glb.ind[j], dim)
+    end
   end
 
   if recordChoosen
@@ -258,11 +266,23 @@ function makeFasterSampleIndex!(j::Int,
   # zz=zz0
   zz=glb.levelList[j,1]
 
+  # select active LOO dims from (not-j)
+  dimmask = 0 .== ones(Int, glb.Ndim)
+  for __j in 1:glb.Ndens
+    __j == j ? continue : nothing
+    dimmask .|= glb.partialDimMask[__j]
+  end
+
   # iterate over kernels in the left out density
   for z in 1:(glb.dNpts[j])
     glb.p[z] = 0.0
     # compute mean `cmo.tmpM` and covariance `cmo.tmpC` across all KDE dimensions.
     for i in 1:glb.Ndim
+      # skip both inactive dim on j, or skip inactive dim from all others in LOO (not-j)
+      if !glb.partialDimMask[j][i] || !dimmask[i] ## tmpC tmpM only from partial LOO
+        # Skip inactive dim (partial)
+        continue
+      end
       # tmpC is calculated on linear (Euclidean) manifold
       cmo.tmpC = bw(glb.trees[j], zz, i)
       doCalmost ? (cmo.tmpC += covValue[i]) : nothing
@@ -286,19 +306,19 @@ function makeFasterSampleIndex!(j::Int,
     cmo.pT += glb.p[z]
     z < glb.dNpts[j] ? (zz = glb.levelList[j,(z+1)]) : nothing
   end
-
+  
   # stick with selection of others to preserve correlations
   if cmo.pT < 1e-99
     p_ = view(glb.p, 1:(glb.dNpts[j]))
     p_ .= weight(glb.trees[j].bt, zz)
     cmo.pT = sum(p_)
   end
-    
+  
   # Normalize the new probabilty for selecting a new kernel
   @simd for z in 1:glb.dNpts[j]
     glb.p[z] /= cmo.pT
   end
-
+  
   # construct CDF for sampling a new kernel
   @simd for z in 2:glb.dNpts[j]
     glb.p[z] += glb.p[z-1]
