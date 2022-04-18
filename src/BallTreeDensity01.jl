@@ -23,6 +23,29 @@ mutable struct BallTreeDensity <: MixtureDensity
   swapHandle::Function
 end
 
+
+function _update!(dst::BallTreeDensity, src::BallTreeDensity)
+  _update!(dst.bt,  src.bt)
+
+  dst.KernelType = src.KernelType
+  dst.multibandwidth = src.multibandwidth
+
+  resize!(dst.means, length(src.means))
+  dst.means .= src.means
+  resize!(dst.bandwidth, length(src.bandwidth))
+  dst.bandwidth .= src.bandwidth
+
+  resize!(dst.bandwidthMin, length(src.bandwidthMin))
+  dst.bandwidthMin .= src.bandwidthMin
+  resize!(dst.bandwidthMax, length(src.bandwidthMax))
+  dst.bandwidthMax .= src.bandwidthMax
+  
+  dst.swapHandle = src.swapHandle
+  dst.calcStatsHandle = src.calcStatsHandle
+  
+  dst
+end
+
 getType(bd::BallTreeDensity) = bd.KernelType
 
 #function Ndim(bd::BallTreeDensity)
