@@ -28,6 +28,39 @@ mutable struct BallTree
 end
 
 
+function _update!(dst::BallTree, src::BallTree)
+  dst.dims != src.dims && @warn("Updating BallTree with different dims source, this might not always be supported")
+  dst.num_points != src.num_points && @warn("Updating BallTree with different num_points source, this might not always be supported")
+  
+  dst.dims = src.dims
+  dst.num_points = src.num_points
+  resize!(dst.centers, length(src.centers))
+  dst.centers .= src.centers
+  resize!(dst.ranges, length(src.ranges))
+  dst.ranges .= src.ranges
+  resize!(dst.weights, length(src.weights))
+  dst.weights .= src.weights
+  resize!(dst.left_child, length(src.left_child))
+  dst.left_child .= src.left_child
+  resize!(dst.right_child, length(src.right_child))
+  dst.right_child .= src.right_child
+  resize!(dst.lowest_leaf, length(src.lowest_leaf))
+  dst.lowest_leaf .= src.lowest_leaf
+  resize!(dst.highest_leaf, length(src.highest_leaf))
+  dst.highest_leaf .= src.highest_leaf
+  resize!(dst.permutation, length(src.permutation))
+  dst.permutation .= src.permutation
+  dst.next = src.next
+
+  dst.swapHandle = src.swapHandle
+  dst.calcStatsHandle = src.calcStatsHandle
+  dst.data = src.data
+  
+  dst
+end
+
+
+
 root() = 1
 Ndim(bt::BallTree) = bt.dims
 Npts(bt::BallTree) = bt.num_points
