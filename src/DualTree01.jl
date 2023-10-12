@@ -21,7 +21,7 @@ function distGauss!(restmp::Array{Float64, 1},
                     mainop=(-,),
                     diffop=(-,),
                     saturate::Bool=false,
-                    isX86Arch::Bool= (Base.Sys.ARCH in [:x86_64;])  )
+                    isX86Arch::Bool= (Base.Sys.ARCH == :x86_64)  )
   #
   # internal helper to for IR optimization to remove
 
