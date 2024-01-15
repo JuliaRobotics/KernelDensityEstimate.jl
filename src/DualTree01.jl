@@ -458,14 +458,13 @@ function evalAvgLogL(bd1::BallTreeDensity,
 
   # TODO convert ind to a for loop to avoid memory allocation
   ind = findall(L.==0.0)
-  ll = nothing
-  if sum(findall(x->x!=0, W[ind])) > 0
+  ll = if 0 < sum(findall(x->x!=0, W[ind]))
     # println("evalAvgLogL -- in if")
-    ll=-Inf
+    -Inf
   else
     # println("evalAvgLogL -- in else")
     L[ind] .= 1.0
-    ll = (log.(L)')*W
+    (log.(L)')*W
   end
   return ll
 end
