@@ -428,21 +428,21 @@ Evaluate the KDE object at given points.
 
 > **Note**, must use Array{Float64,2} when passing in evaluation points.
 """
-function (bd::BallTreeDensity)(pos::Array{Float64,2},
+function (bd::BallTreeDensity)(pos::AbstractMatrix{Float64},
                                lvFlag::Bool=false,
                                errTol::Float64=1e-3,
                                addop=(+,),
                                diffop=(-,) )
   evaluateDualTree(bd, pos, lvFlag, errTol, addop, diffop)
 end
-function (bd::BallTreeDensity)(pos::Array{Float64,1},
+function (bd::BallTreeDensity)(pos::AbstractVector{Float64},
                                lvFlag::Bool=false,
                                errTol::Float64=1e-3,
                                addop=(+,),
                                diffop=(-,) )
   # TODO should it not be reshape(pos,1,:) instead?
   # @warn "whoa! check reshape inside this eval balltree function"
-  evaluateDualTree(bd, reshape(pos,1,:), lvFlag, errTol, addop, diffop)
+  evaluateDualTree(bd, reshape(pos,:,1), lvFlag, errTol, addop, diffop)
 end
 
 
